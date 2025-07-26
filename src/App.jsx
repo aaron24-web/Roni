@@ -6,6 +6,7 @@ import PantallaVenta from './components/PantallaVenta';
 import GestionEmpleados from './components/GestionEmpleados';
 import GestionProductos from './components/GestionProductos';
 import GestionDepartamentos from './components/GestionDepartamentos';
+import GestionClientes from './components/GestionClientes';
 import './App.css';
 
 const navStyles = {
@@ -73,6 +74,8 @@ function App() {
                 return <GestionProductos />;
             case 'departamentos':
                 return <GestionDepartamentos />;
+            case 'clientes':
+                return <GestionClientes perfil={perfil} />;
             default:
                 return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} />;
         }
@@ -96,6 +99,7 @@ function App() {
                         <button style={vistaActual === 'ventas' ? navButtonSelected : navButton} onClick={() => setVistaActual('ventas')}>Ventas</button>
                         <button style={vistaActual === 'productos' ? navButtonSelected : navButton} onClick={() => setVistaActual('productos')}>Productos</button>
                         <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
+                        <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                     </nav>
                     
                     {vistaActual === 'ventas' && (
