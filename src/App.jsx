@@ -1,0 +1,123 @@
+// src/App.jsx
+
+import { useState } from 'react';
+import Login from './components/Login';
+import PantallaVenta from './components/PantallaVenta';
+import GestionEmpleados from './components/GestionEmpleados';
+import GestionProductos from './components/GestionProductos';
+import GestionDepartamentos from './components/GestionDepartamentos';
+import './App.css';
+
+const navStyles = {
+    padding: '10px 20px',
+    background: '#e9ecef',
+    display: 'flex',
+    gap: '10px',
+    borderBottom: '1px solid #dee2e6'
+};
+const navButton = {
+    padding: '8px 15px',
+    border: '1px solid transparent',
+    borderRadius: '5px',
+    background: 'none',
+    fontSize: '16px',
+    cursor: 'pointer'
+};
+const navButtonSelected = {
+    ...navButton,
+    background: 'white',
+    borderColor: '#dee2e6'
+};
+
+function App() {
+    const [perfil, setPerfil] = useState(null);
+    const [vistaActual, setVistaActual] = useState('ventas');
+    const [tickets, setTickets] = useState([{ id: 1, carrito: [] }]);
+    const [ticketActivoId, setTicketActivoId] = useState(1);
+    const [nextTicketId, setNextTicketId] = useState(2);
+
+    const handleLoginSuccess = (loggedInProfile) => { setPerfil(loggedInProfile); };
+    const handleLogout = () => {
+        setPerfil(null);
+        setTickets([{ id: 1, carrito: [] }]);
+        setTicketActivoId(1);
+        setNextTicketId(2);
+        setVistaActual('ventas');
+    };
+
+    const crearNuevoTicket = () => {
+        const nuevoTicket = { id: nextTicketId, carrito: [] };
+        setTickets([...tickets, nuevoTicket]);
+        setTicketActivoId(nextTicketId);
+        setNextTicketId(nextTicketId + 1);
+    };
+    const cerrarTicket = (idACerrar) => {
+        if (tickets.length <= 1) return;
+        const nuevosTickets = tickets.filter(t => t.id !== idACerrar);
+        setTickets(nuevosTickets);
+        if (ticketActivoId === idACerrar) {
+            setTicketActivoId(nuevosTickets[0].id);
+        }
+    };
+    const actualizarCarritoActivo = (nuevoCarrito) => {
+        setTickets(tickets.map(t => t.id === ticketActivoId ? { ...t, carrito: nuevoCarrito } : t));
+    };
+    
+    const ticketActivo = tickets.find(t => t.id === ticketActivoId) || tickets[0];
+
+    const renderizarVista = () => {
+        switch (vistaActual) {
+            case 'ventas':
+                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} />;
+            case 'productos':
+                return <GestionProductos />;
+            case 'departamentos':
+                return <GestionDepartamentos />;
+            default:
+                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} />;
+        }
+    };
+
+    return (
+        <div className="App">
+            {!perfil ? (
+                <Login onLogin={handleLoginSuccess} />
+            ) : (
+                <>
+                    <header className="App-header">
+                        <h1>Papelería Roni</h1>
+                        <div>
+                            {perfil.nombre_completo} ({perfil.nombre_rol})
+                            <button onClick={handleLogout} style={{marginLeft: '15px'}}>Cerrar Sesión</button>
+                        </div>
+                    </header>
+                    
+                    <nav style={navStyles}>
+                        <button style={vistaActual === 'ventas' ? navButtonSelected : navButton} onClick={() => setVistaActual('ventas')}>Ventas</button>
+                        <button style={vistaActual === 'productos' ? navButtonSelected : navButton} onClick={() => setVistaActual('productos')}>Productos</button>
+                        <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
+                    </nav>
+                    
+                    {vistaActual === 'ventas' && (
+                        <div className="tickets-nav">
+                            {tickets.map((ticket, index) => (
+                                <button key={ticket.id} className={`ticket-tab ${ticket.id === ticketActivoId ? 'active' : ''}`} onClick={() => setTicketActivoId(ticket.id)}>
+                                    Ticket {index + 1}
+                                    {tickets.length > 1 && <span onClick={(e) => { e.stopPropagation(); cerrarTicket(ticket.id); }} style={{marginLeft: '8px', color: 'red', fontWeight:'bold'}}>x</span>}
+                                </button>
+                            ))}
+                            <button className="new-ticket-btn" onClick={crearNuevoTicket}>+</button>
+                        </div>
+                    )}
+
+                    <main>
+                        {renderizarVista()}
+                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && vistaActual === 'ventas' && <GestionEmpleados />}
+                    </main>
+                </>
+            )}
+        </div>
+    );
+}
+
+export default App;

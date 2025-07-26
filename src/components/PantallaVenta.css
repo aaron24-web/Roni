@@ -1,0 +1,200 @@
+/* src/components/PantallaVenta.css */
+
+.pos-container {
+  display: flex; /* Usamos Flexbox para el layout principal */
+  flex-direction: column; /* Apilamos los elementos verticalmente */
+  height: calc(100vh - 80px); /* Ocupa toda la altura menos el header */
+  padding: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: #f0f2f5;
+}
+
+.search-bar {
+  margin-bottom: 15px;
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0; /* Evita que la barra de búsqueda se encoja */
+}
+
+.pos-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #0078d4;
+  color: white;
+  cursor: pointer;
+}
+
+/* Contenedor de la tabla para que sea scrollable */
+.table-container {
+  flex-grow: 1; /* Hace que este contenedor ocupe todo el espacio sobrante */
+  overflow-y: auto; /* Añade scroll si la lista de productos es muy larga */
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+
+.sales-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sales-table th, .sales-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.sales-table th {
+  background-color: #e0e0e0;
+  position: sticky;
+  top: 0; /* Fija el encabezado de la tabla al hacer scroll */
+}
+
+/* --- NUEVOS ESTILOS PARA CONTROLES DE CANTIDAD --- */
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quantity-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  background-color: #f7f7f7;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-display {
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+}
+/* ----------------------------------------------- */
+
+.footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0; /* Evita que el footer se encoja */
+}
+
+.total-display {
+  font-size: 2.5em;
+  font-weight: bold;
+}
+
+
+/* --- Estilos del Modal (sin cambios) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 60%;
+  max-width: 700px;
+}
+.search-results-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 5px;
+}
+.search-results-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+.search-results-list li:hover {
+  background-color: #0078d4;
+  color: white;
+}
+
+.checkout-btn {
+  padding: 15px 40px;
+  font-size: 20px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  background-color: #28a745; /* Un verde para la acción principal */
+  color: white;
+  cursor: pointer;
+  margin-left: 20px; /* Espacio entre el total y el botón */
+}
+
+.checkout-btn:hover {
+  background-color: #218838;
+}
+
+/* Añadir esto al final de src/components/PantallaVenta.css */
+
+.payment-methods {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.payment-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.payment-btn.selected {
+  background-color: #0078d4;
+  color: white;
+  border-color: #0078d4;
+}
+
+.cash-payment {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px dashed #ccc;
+  border-radius: 5px;
+}
+
+.cash-payment label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.cash-payment input {
+  padding: 8px;
+  font-size: 18px;
+  width: 150px;
+}
+
+.change-display {
+  margin-top: 15px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.initial-message {
+  text-align: center;
+  margin-top: 50px;
+  color: #6c757d;
+}

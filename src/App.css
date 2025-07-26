@@ -1,0 +1,52 @@
+/* src/App.css */
+
+/* Eliminamos el ancho máximo y el centrado para que ocupe toda la pantalla */
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 1rem 1.5rem;
+  color: white;
+  font-size: calc(10px + 2vmin);
+}
+
+/* src/App.css - Añadir al final */
+
+.tickets-nav {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background-color: #dee2e6;
+  border-bottom: 1px solid #adb5bd;
+}
+
+.ticket-tab {
+  padding: 10px 15px;
+  cursor: pointer;
+  border: none;
+  border-right: 1px solid #adb5bd;
+  background-color: transparent;
+  font-size: 14px;
+}
+
+.ticket-tab.active {
+  background-color: #f0f2f5; /* El mismo color del fondo principal */
+  font-weight: bold;
+}
+
+.new-ticket-btn {
+  padding: 5px 10px;
+  margin-left: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 50%;
+  border: 1px solid #6c757d;
+  background-color: white;
+  cursor: pointer;
+  line-height: 1;
+}
