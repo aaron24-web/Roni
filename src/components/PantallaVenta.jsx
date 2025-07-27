@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import CantidadModal from './CantidadModal';
+import SupervisorApprovalModal from './SupervisorApprovalModal';
 import './PantallaVenta.css';
 
 export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVentaCompleta, corteActivo }) {
@@ -18,21 +19,18 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const [clientes, setClientes] = useState([]);
     const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState('1');
     const [productoParaCantidad, setProductoParaCantidad] = useState(null);
+    
+    // Estados para el flujo de aprobación
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [actionToApprove, setActionToApprove] = useState(null);
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            const { data: clientesData, error: clientesError } = await supabase
-                .from('clientes')
-                .select('cliente_id, nombre, permite_credito')
-                .eq('activo', true)
-                .order('nombre');
+            const { data: clientesData, error: clientesError } = await supabase.from('clientes').select('cliente_id, nombre, permite_credito').eq('activo', true).order('nombre');
             if (clientesError) console.error("Error al cargar clientes:", clientesError);
             else setClientes(clientesData || []);
 
-            const { data: metodosData, error: metodosError } = await supabase
-                .from('metodospago')
-                .select('*')
-                .eq('activo', true);
+            const { data: metodosData, error: metodosError } = await supabase.from('metodospago').select('*').eq('activo', true);
             if (metodosError) console.error("Error al cargar métodos de pago:", metodosError);
             else {
                 setMetodosPago(metodosData || []);
@@ -92,11 +90,38 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         const itemExistente = carrito.find(item => item.producto_id === productoId);
         let nuevoCarrito;
         if (itemExistente.cantidad === 1) {
-            nuevoCarrito = carrito.filter(item => item.producto_id !== productoId);
+            eliminarDelCarrito(productoId); // Ahora llama a la función principal de eliminar
+            return;
         } else {
             nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad - 1, importe: (item.cantidad - 1) * item.precio_unitario_registrado } : item);
         }
         onCarritoChange(nuevoCarrito);
+    };
+
+    const eliminarDelCarrito = (productoId) => {
+        const isAdmin = perfil?.nombre_rol?.toLowerCase() === 'administrador';
+
+        const doRemove = () => {
+            const nuevoCarrito = carrito.filter(item => item.producto_id !== productoId);
+            onCarritoChange(nuevoCarrito);
+        };
+
+        if (isAdmin) {
+            if (window.confirm("¿Estás seguro de que quieres quitar este producto del ticket?")) {
+                doRemove();
+            }
+        } else {
+            setActionToApprove(() => doRemove);
+            setShowApprovalModal(true);
+        }
+    };
+
+    const handleApprovalSuccess = () => {
+        if (actionToApprove) {
+            actionToApprove();
+        }
+        setShowApprovalModal(false);
+        setActionToApprove(null);
     };
 
     const agregarAlCarrito = (producto) => {
@@ -173,8 +198,8 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     
     return (
         <div className="pos-container">
+            {showApprovalModal && <SupervisorApprovalModal onApprove={handleApprovalSuccess} onCancel={() => setShowApprovalModal(false)} />}
             {productoParaCantidad && <CantidadModal producto={productoParaCantidad} onConfirm={handleConfirmarCantidad} onCancel={() => setProductoParaCantidad(null)} />}
-            
             {modalAbierto && (
                 <div className="modal-overlay" onClick={() => setModalAbierto(false)}>
                   <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -190,7 +215,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                   </div>
                 </div>
             )}
-
             {checkoutModalAbierto && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -239,7 +263,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                     </div>
                 </div>
             )}
-            
             <div className="search-bar">
                 <button className="pos-button" onClick={() => setModalAbierto(true)}>[F10] Buscar Producto</button>
             </div>
@@ -258,7 +281,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                           <td>{item.descripcion}</td>
                           <td>${parseFloat(item.precio_unitario_registrado).toFixed(2)}</td>
                           <td>${parseFloat(item.importe).toFixed(2)}</td>
-                          <td>
+                          <td style={{display: 'flex', gap: '5px', alignItems: 'center'}}>
                             {item.tipo_producto === 'GRANEL' ? (
                                 <button onClick={() => agregarAlCarrito(item)}>Editar Cant.</button>
                             ) : (
@@ -268,6 +291,11 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                   <button className="quantity-btn" onClick={() => aumentarCantidad(item.producto_id)}>+</button>
                                 </div>
                             )}
+                            <button 
+                                onClick={() => eliminarDelCarrito(item.producto_id)} 
+                                style={{backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer'}}
+                                title="Quitar producto del ticket"
+                            >X</button>
                           </td>
                         </tr>
                       ))

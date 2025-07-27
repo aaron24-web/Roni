@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import DetalleCorteModal from './DetalleCorteModal'; // NUEVO
+import DetalleCorteModal from './DetalleCorteModal';
 import './PantallaVenta.css';
 
-export default function Reportes() {
+export default function Reportes({ perfil }) {
     const [cortes, setCortes] = useState([]);
     const [loading, setLoading] = useState(true);
-    // NUEVOS ESTADOS PARA EL MODAL
     const [showModal, setShowModal] = useState(false);
     const [corteSeleccionado, setCorteSeleccionado] = useState(null);
 
@@ -16,10 +15,15 @@ export default function Reportes() {
         const fetchHistorial = async () => {
             setLoading(true);
             const { data, error } = await supabase.rpc('obtener_historial_cortes');
-            if (error) console.error("Error al cargar el historial de cortes:", error);
-            else setCortes(data);
+            
+            if (error) {
+                console.error("Error al cargar el historial de cortes:", error);
+            } else {
+                setCortes(data || []);
+            }
             setLoading(false);
         };
+
         fetchHistorial();
     }, []);
 
@@ -28,11 +32,13 @@ export default function Reportes() {
         setShowModal(true);
     };
 
-    if (loading) return <div style={{padding: '20px'}}>Cargando historial de cortes...</div>;
+    if (loading) {
+        return <div style={{padding: '20px'}}>Cargando historial de cortes...</div>;
+    }
 
     return (
         <div className="pos-container">
-            {showModal && <DetalleCorteModal corte={corteSeleccionado} onClose={() => setShowModal(false)} />}
+            {showModal && <DetalleCorteModal corte={corteSeleccionado} perfil={perfil} onClose={() => setShowModal(false)} />}
 
             <div className="search-bar">
                 <h2>Historial de Cortes de Caja</h2>

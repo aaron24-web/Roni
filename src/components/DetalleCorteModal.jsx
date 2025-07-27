@@ -4,26 +4,49 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import './PantallaVenta.css';
 
-export default function DetalleCorteModal({ corte, onClose }) {
+export default function DetalleCorteModal({ corte, perfil, onClose }) {
     const [ventas, setVentas] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchDetalles = async () => {
-            setLoading(true);
-            const { data, error } = await supabase.rpc('obtener_ventas_por_corte', {
-                corte_id_param: corte.corte_id
-            });
-            if (error) {
-                console.error("Error al cargar detalles del corte:", error);
-            } else {
-                setVentas(data);
-            }
-            setLoading(false);
-        };
+    const fetchDetalles = async () => {
+        setLoading(true);
+        const { data, error } = await supabase.rpc('obtener_ventas_por_corte', {
+            corte_id_param: corte.corte_id
+        });
+        if (error) {
+            console.error("Error al cargar detalles del corte:", error);
+        } else {
+            setVentas(data);
+        }
+        setLoading(false);
+    };
 
+    useEffect(() => {
         fetchDetalles();
     }, [corte.corte_id]);
+
+    const handleCancelarVenta = async (ventaId) => {
+        const motivo = prompt("Por favor, ingresa el motivo de la cancelación:");
+        if (motivo) {
+            try {
+                // --- CORRECCIÓN AQUÍ ---
+                // Ahora llamamos a la función pasándole un solo objeto 'args'
+                const { error } = await supabase.rpc('cancelar_venta_completa', {
+                    args: {
+                        venta_id_param: ventaId,
+                        supervisor_id_param: perfil.empleado_id,
+                        motivo_param: motivo
+                    }
+                });
+
+                if (error) throw error;
+                alert("Venta cancelada exitosamente. El inventario ha sido restaurado.");
+                fetchDetalles();
+            } catch (err) {
+                alert(`Error al cancelar la venta: ${err.message}`);
+            }
+        }
+    };
 
     return (
         <div className="modal-overlay">
@@ -42,6 +65,7 @@ export default function DetalleCorteModal({ corte, onClose }) {
                                     <th>Fecha y Hora</th>
                                     <th>Cliente</th>
                                     <th>Total</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -51,6 +75,13 @@ export default function DetalleCorteModal({ corte, onClose }) {
                                         <td>{new Date(venta.fecha_hora).toLocaleString()}</td>
                                         <td>{venta.nombre_cliente}</td>
                                         <td>${parseFloat(venta.total).toFixed(2)}</td>
+                                        <td>
+                                            <button 
+                                                onClick={() => handleCancelarVenta(venta.venta_id)} 
+                                                style={{backgroundColor: '#dc3545', color: 'white'}}>
+                                                Cancelar Venta
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

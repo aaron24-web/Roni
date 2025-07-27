@@ -10,12 +10,14 @@ import GestionDepartamentos from './components/GestionDepartamentos';
 import GestionClientes from './components/GestionClientes';
 import CorteCaja from './components/CorteCaja';
 import Reportes from './components/Reportes';
+import GestionProveedores from './components/GestionProveedores';
 import './App.css';
 
 const navStyles = {
     padding: '10px 20px',
     background: '#e9ecef',
     display: 'flex',
+    flexWrap: 'wrap',
     gap: '10px',
     borderBottom: '1px solid #dee2e6'
 };
@@ -97,12 +99,14 @@ function App() {
                 return <GestionDepartamentos perfil={perfil} />;
             case 'clientes':
                 return <GestionClientes perfil={perfil} />;
-            case 'empleados': // NUEVA VISTA
-                return <GestionEmpleados />;
+            case 'empleados':
+                return <GestionEmpleados perfil={perfil} />;
+            case 'proveedores':
+                return <GestionProveedores perfil={perfil} />;
             case 'caja':
                 return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
             case 'reportes':
-                return <Reportes />;
+                return <Reportes perfil={perfil} />;
             default:
                 return <div>Vista no encontrada</div>;
         }
@@ -129,9 +133,9 @@ function App() {
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                         <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
                         
-                        {/* Pestañas solo para Administradores */}
                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
                             <>
+                                <button style={vistaActual === 'proveedores' ? navButtonSelected : navButton} onClick={() => setVistaActual('proveedores')}>Proveedores</button>
                                 <button style={vistaActual === 'empleados' ? navButtonSelected : navButton} onClick={() => setVistaActual('empleados')}>Empleados</button>
                                 <button style={vistaActual === 'reportes' ? navButtonSelected : navButton} onClick={() => setVistaActual('reportes')}>Reportes</button>
                             </>
