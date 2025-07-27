@@ -11,6 +11,7 @@ import GestionClientes from './components/GestionClientes';
 import CorteCaja from './components/CorteCaja';
 import Reportes from './components/Reportes';
 import GestionProveedores from './components/GestionProveedores';
+import GestionPromociones from './components/GestionPromociones';
 import './App.css';
 
 const navStyles = {
@@ -107,6 +108,8 @@ function App() {
                 return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
             case 'reportes':
                 return <Reportes perfil={perfil} />;
+            case 'promociones':
+                return <GestionPromociones perfil={perfil} />;
             default:
                 return <div>Vista no encontrada</div>;
         }
@@ -133,12 +136,12 @@ function App() {
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                         <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
                         
-                        {/* Pestañas solo para Administradores */}
                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
                             <>
                                 <button style={vistaActual === 'proveedores' ? navButtonSelected : navButton} onClick={() => setVistaActual('proveedores')}>Proveedores</button>
                                 <button style={vistaActual === 'empleados' ? navButtonSelected : navButton} onClick={() => setVistaActual('empleados')}>Empleados</button>
                                 <button style={vistaActual === 'reportes' ? navButtonSelected : navButton} onClick={() => setVistaActual('reportes')}>Reportes</button>
+                                <button style={vistaActual === 'promociones' ? navButtonSelected : navButton} onClick={() => setVistaActual('promociones')}>Promociones</button>
                             </>
                         )}
                     </nav>
