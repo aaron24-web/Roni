@@ -198,3 +198,15 @@
   margin-top: 50px;
   color: #6c757d;
 }
+
+/* Añadir esto al final de src/components/PantallaVenta.css */
+
+.customer-selection {
+  margin-bottom: 20px;
+}
+
+.customer-selection label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
