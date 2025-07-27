@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import CantidadModal from './CantidadModal';
 import './PantallaVenta.css';
 
 export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVentaCompleta, corteActivo }) {
@@ -16,10 +17,10 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const [cambio, setCambio] = useState(0);
     const [clientes, setClientes] = useState([]);
     const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState('1');
+    const [productoParaCantidad, setProductoParaCantidad] = useState(null);
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            // Cargar clientes
             const { data: clientesData, error: clientesError } = await supabase
                 .from('clientes')
                 .select('cliente_id, nombre, permite_credito')
@@ -28,7 +29,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
             if (clientesError) console.error("Error al cargar clientes:", clientesError);
             else setClientes(clientesData || []);
 
-            // Cargar métodos de pago
             const { data: metodosData, error: metodosError } = await supabase
                 .from('metodospago')
                 .select('*')
@@ -49,7 +49,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
             return;
         }
         const timer = setTimeout(async () => {
-            const { data } = await supabase.from('productos').select('producto_id, descripcion, precio_venta, codigo_barras').or(`descripcion.ilike.%${terminoBusqueda}%,codigo_barras.eq.${terminoBusqueda}`).limit(10);
+            const { data } = await supabase.from('productos').select('*, departamentos ( nombre )').or(`descripcion.ilike.%${terminoBusqueda}%,codigo_barras.eq.${terminoBusqueda}`).limit(10);
             setResultados(data || []);
         }, 300);
         return () => clearTimeout(timer);
@@ -73,11 +73,17 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         const itemExistente = carrito.find(item => item.producto_id === productoId);
         let nuevoCarrito;
         if (itemExistente) {
-            nuevoCarrito = carrito.map(item =>
-                item.producto_id === productoId ? { ...item, cantidad: item.cantidad + 1, importe: (item.cantidad + 1) * item.precio_unitario_registrado } : item
-            );
+            nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad + 1, importe: (item.cantidad + 1) * item.precio_unitario_registrado } : item);
         } else if (productoInfo) {
-            nuevoCarrito = [...carrito, { producto_id: productoInfo.producto_id, descripcion: productoInfo.descripcion, cantidad: 1, precio_unitario_registrado: productoInfo.precio_venta, importe: productoInfo.precio_venta }];
+            nuevoCarrito = [...carrito, {
+                producto_id: productoInfo.producto_id,
+                descripcion: productoInfo.descripcion,
+                cantidad: 1,
+                precio_unitario_registrado: productoInfo.precio_venta,
+                importe: productoInfo.precio_venta,
+                tipo_producto: productoInfo.tipo_producto,
+                unidad_medida: productoInfo.unidad_medida
+            }];
         }
         onCarritoChange(nuevoCarrito);
     };
@@ -88,20 +94,43 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         if (itemExistente.cantidad === 1) {
             nuevoCarrito = carrito.filter(item => item.producto_id !== productoId);
         } else {
-            nuevoCarrito = carrito.map(item =>
-                item.producto_id === productoId ? { ...item, cantidad: item.cantidad - 1, importe: (item.cantidad - 1) * item.precio_unitario_registrado } : item
-            );
+            nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad - 1, importe: (item.cantidad - 1) * item.precio_unitario_registrado } : item);
         }
         onCarritoChange(nuevoCarrito);
     };
 
     const agregarAlCarrito = (producto) => {
-        aumentarCantidad(producto.producto_id, producto);
+        if (producto.tipo_producto === 'GRANEL') {
+            const itemEnCarrito = carrito.find(item => item.producto_id === producto.producto_id);
+            setProductoParaCantidad(itemEnCarrito || producto);
+        } else {
+            aumentarCantidad(producto.producto_id, producto);
+        }
         setModalAbierto(false);
         setTerminoBusqueda('');
         setResultados([]);
     };
     
+    const handleConfirmarCantidad = (producto, cantidad) => {
+        const itemExistente = carrito.find(item => item.producto_id === producto.producto_id);
+        let nuevoCarrito;
+        if (itemExistente) {
+             nuevoCarrito = carrito.map(item => item.producto_id === producto.producto_id ? { ...item, cantidad: cantidad, importe: cantidad * item.precio_unitario_registrado } : item);
+        } else {
+            nuevoCarrito = [...carrito, {
+                producto_id: producto.producto_id,
+                descripcion: producto.descripcion,
+                cantidad: cantidad,
+                precio_unitario_registrado: producto.precio_venta,
+                importe: cantidad * producto.precio_venta,
+                tipo_producto: producto.tipo_producto,
+                unidad_medida: producto.unidad_medida
+            }];
+        }
+        onCarritoChange(nuevoCarrito);
+        setProductoParaCantidad(null);
+    };
+
     const handleConfirmarVenta = async () => {
         if (!metodoSeleccionado) return alert("Por favor, selecciona un método de pago.");
         if (carrito.length === 0) return alert("El carrito está vacío.");
@@ -144,6 +173,8 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     
     return (
         <div className="pos-container">
+            {productoParaCantidad && <CantidadModal producto={productoParaCantidad} onConfirm={handleConfirmarCantidad} onCancel={() => setProductoParaCantidad(null)} />}
+            
             {modalAbierto && (
                 <div className="modal-overlay" onClick={() => setModalAbierto(false)}>
                   <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -166,7 +197,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                         <h2>Finalizar Venta</h2>
                         <h3>Total a Pagar: ${total.toFixed(2)}</h3>
                         <hr />
-                        
                         <div className="customer-selection">
                             <label htmlFor="cliente">Asignar Venta a:</label>
                             <select id="cliente" value={clienteSeleccionadoId} onChange={(e) => setClienteSeleccionadoId(e.target.value)} className="pos-input">
@@ -175,7 +205,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                 ))}
                             </select>
                         </div>
-                        
                         <h4>Método de Pago</h4>
                         <div className="payment-methods">
                             {metodosPago.map(metodo => {
@@ -183,7 +212,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                 const isPublicoGeneral = clienteActual?.cliente_id === 1;
                                 const creditoNoPermitido = !clienteActual?.permite_credito;
                                 const isDisabled = isCredito && (isPublicoGeneral || creditoNoPermitido);
-
                                 return (
                                     <button
                                         key={metodo.metodo_pago_id}
@@ -197,7 +225,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                 );
                             })}
                         </div>
-
                         {metodosPago.find(m => m.metodo_pago_id === metodoSeleccionado)?.nombre.toLowerCase() === 'efectivo' && (
                             <div className="cash-payment">
                                 <label htmlFor="montoRecibido">Monto Recibido:</label>
@@ -205,7 +232,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                 <div className="change-display">Cambio: ${cambio.toFixed(2)}</div>
                             </div>
                         )}
-                        
                         <div className="footer" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                             <button className="pos-button" style={{backgroundColor: '#6c757d'}} onClick={() => setCheckoutModalAbierto(false)}>Cancelar</button>
                             <button className="checkout-btn" onClick={handleConfirmarVenta}>Confirmar Venta</button>
@@ -213,20 +239,14 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                     </div>
                 </div>
             )}
-
+            
             <div className="search-bar">
                 <button className="pos-button" onClick={() => setModalAbierto(true)}>[F10] Buscar Producto</button>
             </div>
             <div className="table-container">
                 <table className="sales-table">
                   <thead>
-                    <tr>
-                      <th>Cant.</th>
-                      <th>Descripción</th>
-                      <th>Precio Unit.</th>
-                      <th>Importe</th>
-                      <th>Acciones</th>
-                    </tr>
+                    <tr><th>Cant.</th><th>Descripción</th><th>Precio Unit.</th><th>Importe</th><th>Acciones</th></tr>
                   </thead>
                   <tbody>
                     {carrito.length === 0 ? (
@@ -234,16 +254,20 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                     ) : (
                       carrito.map(item => (
                         <tr key={item.producto_id}>
-                          <td>{item.cantidad}</td>
+                          <td>{item.cantidad} {item.tipo_producto === 'GRANEL' ? item.unidad_medida || 'KG' : ''}</td>
                           <td>{item.descripcion}</td>
                           <td>${parseFloat(item.precio_unitario_registrado).toFixed(2)}</td>
                           <td>${parseFloat(item.importe).toFixed(2)}</td>
                           <td>
-                            <div className="quantity-controls">
-                              <button className="quantity-btn" onClick={() => reducirCantidad(item.producto_id)}>-</button>
-                              <span className="quantity-display">{item.cantidad}</span>
-                              <button className="quantity-btn" onClick={() => aumentarCantidad(item.producto_id)}>+</button>
-                            </div>
+                            {item.tipo_producto === 'GRANEL' ? (
+                                <button onClick={() => agregarAlCarrito(item)}>Editar Cant.</button>
+                            ) : (
+                                <div className="quantity-controls">
+                                  <button className="quantity-btn" onClick={() => reducirCantidad(item.producto_id)}>-</button>
+                                  <span className="quantity-display">{item.cantidad}</span>
+                                  <button className="quantity-btn" onClick={() => aumentarCantidad(item.producto_id)}>+</button>
+                                </div>
+                            )}
                           </td>
                         </tr>
                       ))

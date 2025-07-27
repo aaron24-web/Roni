@@ -2,114 +2,164 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import './PantallaVenta.css';
 
-// Estilos (sin cambios)
-const styles = {
-    container: {
-        padding: '20px',
-        marginTop: '30px',
-        borderTop: '2px solid #ccc'
-    },
-    form: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        maxWidth: '400px'
-    },
-    input: {
-        padding: '8px',
-        fontSize: '14px'
-    },
-    button: {
-        padding: '10px',
-        fontSize: '14px',
-        backgroundColor: '#28a745',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer'
-    },
-    message: {
-        marginTop: '10px',
-        fontWeight: 'bold'
-    }
+const estadoInicialEmpleado = {
+    nombre_completo: '',
+    usuario: '',
+    contrasena_hash: '',
+    rol_id: '',
+    fecha_contratacion: new Date().toISOString().split('T')[0]
 };
 
 export default function GestionEmpleados() {
-    const [nombre, setNombre] = useState('');
-    const [usuario, setUsuario] = useState('');
-    const [password, setPassword] = useState('');
-    const [rolId, setRolId] = useState('');
-    
-    // NUEVO: Estado para la fecha de contratación, inicializado a la fecha de hoy
-    const [fechaContratacion, setFechaContratacion] = useState(new Date().toISOString().split('T')[0]);
-
+    const [empleados, setEmpleados] = useState([]);
     const [roles, setRoles] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [currentEmpleado, setCurrentEmpleado] = useState(estadoInicialEmpleado);
+    const [isEditing, setIsEditing] = useState(false);
+
+    const fetchEmpleadosYRoles = async () => {
+        setLoading(true);
+        const { data: empleadosData, error: empleadosError } = await supabase
+            .from('empleados')
+            .select('*, roles(nombre_rol)')
+            .eq('activo', true) // Solo mostrar empleados activos
+            .order('nombre_completo');
+        
+        const { data: rolesData, error: rolesError } = await supabase
+            .from('roles')
+            .select('*');
+
+        if (empleadosError || rolesError) {
+            console.error("Error al cargar datos:", empleadosError || rolesError);
+        } else {
+            setEmpleados(empleadosData);
+            setRoles(rolesData);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        const fetchRoles = async () => {
-            const { data, error } = await supabase.from('roles').select('rol_id, nombre_rol');
-            if (!error && data.length > 0) {
-                setRoles(data);
-                setRolId(data[0].rol_id);
-            }
-        };
-        fetchRoles();
+        fetchEmpleadosYRoles();
     }, []);
 
-    const handleCrearEmpleado = async (e) => {
+    const openModalNuevo = () => {
+        setIsEditing(false);
+        setCurrentEmpleado({
+            ...estadoInicialEmpleado,
+            rol_id: roles.length > 0 ? roles[0].rol_id : ''
+        });
+        setShowModal(true);
+    };
+
+    const openModalEditar = (empleado) => {
+        setIsEditing(true);
+        setCurrentEmpleado(empleado);
+        setShowModal(true);
+    };
+
+    const handleGuardar = async (e) => {
         e.preventDefault();
-        setLoading(true);
-        setMessage('');
-
+        
         try {
-            const { data, error } = await supabase.rpc('crear_empleado_directo', {
-                nombre_completo_param: nombre,
-                usuario_param: usuario,
-                contrasena_param: password,
-                rol_id_param: parseInt(rolId),
-                fecha_contratacion_param: fechaContratacion // NUEVO: Pasamos la fecha a la función
-            });
-
-            if (error) throw error;
-            
-            setMessage(data);
-            setNombre('');
-            setUsuario('');
-            setPassword('');
-            // Reseteamos la fecha a hoy
-            setFechaContratacion(new Date().toISOString().split('T')[0]);
-
+            if (isEditing) {
+                const { error } = await supabase.rpc('actualizar_empleado_directo', {
+                    empleado_id_param: currentEmpleado.empleado_id,
+                    nombre_completo_param: currentEmpleado.nombre_completo,
+                    usuario_param: currentEmpleado.usuario,
+                    rol_id_param: currentEmpleado.rol_id,
+                    fecha_contratacion_param: currentEmpleado.fecha_contratacion
+                });
+                if (error) throw error;
+                alert('Empleado actualizado exitosamente.');
+            } else {
+                const { error } = await supabase.rpc('crear_empleado_directo', {
+                    nombre_completo_param: currentEmpleado.nombre_completo,
+                    usuario_param: currentEmpleado.usuario,
+                    contrasena_param: currentEmpleado.contrasena_hash,
+                    rol_id_param: currentEmpleado.rol_id,
+                    fecha_contratacion_param: currentEmpleado.fecha_contratacion
+                });
+                if (error) throw error;
+                alert('Empleado creado exitosamente.');
+            }
+            setShowModal(false);
+            fetchEmpleadosYRoles();
         } catch (error) {
-            setMessage(`Error: ${error.message}`);
-        } finally {
-            setLoading(false);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
+    const handleEliminar = async (empleadoId) => {
+        if (window.confirm("¿Estás seguro de que quieres eliminar a este empleado?")) {
+            try {
+                const { error } = await supabase.rpc('desactivar_empleado_directo', {
+                    empleado_id_param: empleadoId
+                });
+                if (error) throw error;
+                alert("Empleado desactivado exitosamente.");
+                fetchEmpleadosYRoles();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
         }
     };
 
     return (
-        <div style={styles.container}>
-            <h2>Crear Nuevo Empleado</h2>
-            <form onSubmit={handleCrearEmpleado} style={styles.form}>
-                <input style={styles.input} type="text" placeholder="Nombre Completo" value={nombre} onChange={e => setNombre(e.target.value)} required />
-                <input style={styles.input} type="text" placeholder="Nombre de Usuario (para login)" value={usuario} onChange={e => setUsuario(e.target.value)} required />
-                <input style={styles.input} type="password" placeholder="Contraseña Temporal" value={password} onChange={e => setPassword(e.target.value)} required />
-                
-                {/* NUEVO: Campo para la fecha de contratación */}
-                <label>Fecha de Contratación:</label>
-                <input style={styles.input} type="date" value={fechaContratacion} onChange={e => setFechaContratacion(e.target.value)} required />
+        <div className="pos-container">
+            {showModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h2>{isEditing ? 'Editar Empleado' : 'Nuevo Empleado'}</h2>
+                        <form onSubmit={handleGuardar} style={{display: 'flex', flexDirection:'column', gap:'10px'}}>
+                            <label>Nombre Completo:</label>
+                            <input type="text" value={currentEmpleado.nombre_completo} onChange={(e) => setCurrentEmpleado({...currentEmpleado, nombre_completo: e.target.value})} required className="pos-input" />
+                            <label>Nombre de Usuario:</label>
+                            <input type="text" value={currentEmpleado.usuario} onChange={(e) => setCurrentEmpleado({...currentEmpleado, usuario: e.target.value})} required className="pos-input" />
+                            <label>Contraseña:</label>
+                            <input type="password" value={currentEmpleado.contrasena_hash} onChange={(e) => setCurrentEmpleado({...currentEmpleado, contrasena_hash: e.target.value})} required={!isEditing} disabled={isEditing} className="pos-input" />
+                            <label>Fecha de Contratación:</label>
+                            <input type="date" value={new Date(currentEmpleado.fecha_contratacion).toISOString().split('T')[0]} onChange={(e) => setCurrentEmpleado({...currentEmpleado, fecha_contratacion: e.target.value})} required className="pos-input" />
+                            <label>Rol:</label>
+                            <select value={currentEmpleado.rol_id} onChange={(e) => setCurrentEmpleado({...currentEmpleado, rol_id: e.target.value})} required className="pos-input">
+                                {roles.map(rol => <option key={rol.rol_id} value={rol.rol_id}>{rol.nombre_rol}</option>)}
+                            </select>
+                            <div className="footer">
+                                <button type="button" className="pos-button" onClick={() => setShowModal(false)}>Cancelar</button>
+                                <button type="submit" className="checkout-btn">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
-                <label>Rol del Empleado:</label>
-                <select style={styles.input} value={rolId} onChange={e => setRolId(e.target.value)} required>
-                    {roles.map(rol => (
-                        <option key={rol.rol_id} value={rol.rol_id}>{rol.nombre_rol}</option>
-                    ))}
-                </select>
-                <button style={styles.button} type="submit" disabled={loading}>{loading ? 'Creando...' : 'Crear Empleado'}</button>
-            </form>
-            {message && <p style={styles.message}>{message}</p>}
+            <div className="search-bar" style={{justifyContent: 'space-between', alignItems: 'center'}}>
+                <h2>Gestión de Empleados</h2>
+                <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Empleado</button>
+            </div>
+            <div className="table-container">
+                <table className="sales-table">
+                    <thead>
+                        <tr><th>Nombre Completo</th><th>Usuario</th><th>Rol</th><th>Fecha Contratación</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {empleados.map(emp => (
+                            <tr key={emp.empleado_id}>
+                                <td>{emp.nombre_completo}</td>
+                                <td>{emp.usuario}</td>
+                                <td>{emp.roles.nombre_rol}</td>
+                                <td>{new Date(emp.fecha_contratacion).toLocaleDateString()}</td>
+                                <td>
+                                    <button onClick={() => openModalEditar(emp)}>Editar</button>
+                                    <button onClick={() => handleEliminar(emp.empleado_id)} style={{marginLeft: '10px', backgroundColor: '#dc3545', color: 'white'}}>Eliminar</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

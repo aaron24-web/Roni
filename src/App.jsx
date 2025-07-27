@@ -9,6 +9,7 @@ import GestionProductos from './components/GestionProductos';
 import GestionDepartamentos from './components/GestionDepartamentos';
 import GestionClientes from './components/GestionClientes';
 import CorteCaja from './components/CorteCaja';
+import Reportes from './components/Reportes';
 import './App.css';
 
 const navStyles = {
@@ -87,9 +88,6 @@ function App() {
     const ticketActivo = tickets.find(t => t.id === ticketActivoId) || tickets[0];
 
     const renderizarVista = () => {
-        // --- LÓGICA DE BLOQUEO ELIMINADA DE AQUÍ ---
-        // Ahora simplemente renderizamos la vista seleccionada.
-        // Cada componente es responsable de su propio bloqueo interno.
         switch (vistaActual) {
             case 'ventas':
                 return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} corteActivo={corteActivo} />;
@@ -99,8 +97,12 @@ function App() {
                 return <GestionDepartamentos perfil={perfil} />;
             case 'clientes':
                 return <GestionClientes perfil={perfil} />;
+            case 'empleados': // NUEVA VISTA
+                return <GestionEmpleados />;
             case 'caja':
                 return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
+            case 'reportes':
+                return <Reportes />;
             default:
                 return <div>Vista no encontrada</div>;
         }
@@ -126,6 +128,14 @@ function App() {
                         <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                         <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
+                        
+                        {/* Pestañas solo para Administradores */}
+                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                            <>
+                                <button style={vistaActual === 'empleados' ? navButtonSelected : navButton} onClick={() => setVistaActual('empleados')}>Empleados</button>
+                                <button style={vistaActual === 'reportes' ? navButtonSelected : navButton} onClick={() => setVistaActual('reportes')}>Reportes</button>
+                            </>
+                        )}
                     </nav>
                     
                     {vistaActual === 'ventas' && corteActivo && (
@@ -142,8 +152,6 @@ function App() {
 
                     <main>
                         {cargandoCorte ? <div>Cargando...</div> : renderizarVista()}
-                        
-                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && vistaActual === 'clientes' && <GestionEmpleados />}
                     </main>
                 </>
             )}
