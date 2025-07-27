@@ -1,12 +1,14 @@
 // src/App.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import PantallaVenta from './components/PantallaVenta';
 import GestionEmpleados from './components/GestionEmpleados';
 import GestionProductos from './components/GestionProductos';
 import GestionDepartamentos from './components/GestionDepartamentos';
 import GestionClientes from './components/GestionClientes';
+import CorteCaja from './components/CorteCaja';
 import './App.css';
 
 const navStyles = {
@@ -33,9 +35,26 @@ const navButtonSelected = {
 function App() {
     const [perfil, setPerfil] = useState(null);
     const [vistaActual, setVistaActual] = useState('ventas');
+    const [corteActivo, setCorteActivo] = useState(null);
+    const [cargandoCorte, setCargandoCorte] = useState(true);
     const [tickets, setTickets] = useState([{ id: 1, carrito: [] }]);
     const [ticketActivoId, setTicketActivoId] = useState(1);
     const [nextTicketId, setNextTicketId] = useState(2);
+
+    useEffect(() => {
+        const verificarCorteActivoGlobal = async () => {
+            if (!perfil) {
+                setCorteActivo(null);
+                setCargandoCorte(false);
+                return;
+            }
+            setCargandoCorte(true);
+            const { data } = await supabase.from('cortescaja').select('*').is('fecha_hora_cierre', null).single();
+            setCorteActivo(data);
+            setCargandoCorte(false);
+        };
+        verificarCorteActivoGlobal();
+    }, [perfil]);
 
     const handleLoginSuccess = (loggedInProfile) => { setPerfil(loggedInProfile); };
     const handleLogout = () => {
@@ -44,6 +63,7 @@ function App() {
         setTicketActivoId(1);
         setNextTicketId(2);
         setVistaActual('ventas');
+        setCorteActivo(null);
     };
 
     const crearNuevoTicket = () => {
@@ -67,17 +87,22 @@ function App() {
     const ticketActivo = tickets.find(t => t.id === ticketActivoId) || tickets[0];
 
     const renderizarVista = () => {
+        // --- LÓGICA DE BLOQUEO ELIMINADA DE AQUÍ ---
+        // Ahora simplemente renderizamos la vista seleccionada.
+        // Cada componente es responsable de su propio bloqueo interno.
         switch (vistaActual) {
             case 'ventas':
-                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} />;
+                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} corteActivo={corteActivo} />;
             case 'productos':
-                return <GestionProductos />;
+                return <GestionProductos perfil={perfil} />;
             case 'departamentos':
-                return <GestionDepartamentos />;
+                return <GestionDepartamentos perfil={perfil} />;
             case 'clientes':
                 return <GestionClientes perfil={perfil} />;
+            case 'caja':
+                return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
             default:
-                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} />;
+                return <div>Vista no encontrada</div>;
         }
     };
 
@@ -100,9 +125,10 @@ function App() {
                         <button style={vistaActual === 'productos' ? navButtonSelected : navButton} onClick={() => setVistaActual('productos')}>Productos</button>
                         <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
+                        <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
                     </nav>
                     
-                    {vistaActual === 'ventas' && (
+                    {vistaActual === 'ventas' && corteActivo && (
                         <div className="tickets-nav">
                             {tickets.map((ticket, index) => (
                                 <button key={ticket.id} className={`ticket-tab ${ticket.id === ticketActivoId ? 'active' : ''}`} onClick={() => setTicketActivoId(ticket.id)}>
@@ -115,8 +141,9 @@ function App() {
                     )}
 
                     <main>
-                        {renderizarVista()}
-                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && vistaActual === 'ventas' && <GestionEmpleados />}
+                        {cargandoCorte ? <div>Cargando...</div> : renderizarVista()}
+                        
+                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && vistaActual === 'clientes' && <GestionEmpleados />}
                     </main>
                 </>
             )}

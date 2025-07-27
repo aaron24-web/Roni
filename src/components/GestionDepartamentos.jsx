@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import './PantallaVenta.css'; // Reutilizamos estilos
 
-export default function GestionDepartamentos() {
+export default function GestionDepartamentos({ perfil }) {
     const [departamentos, setDepartamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -42,10 +42,8 @@ export default function GestionDepartamentos() {
         e.preventDefault();
         let error;
         if (isEditing) {
-            // Lógica para actualizar
             ({ error } = await supabase.from('departamentos').update({ nombre: currentDept.nombre, descripcion: currentDept.descripcion }).eq('departamento_id', currentDept.id));
         } else {
-            // Lógica para crear
             ({ error } = await supabase.from('departamentos').insert([{ nombre: currentDept.nombre, descripcion: currentDept.descripcion }]));
         }
 
@@ -90,9 +88,11 @@ export default function GestionDepartamentos() {
                 </div>
             )}
 
-            <div className="search-bar">
+            <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Departamentos</h2>
-                <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Departamento</button>
+                {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                    <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Departamento</button>
+                )}
             </div>
             <div className="table-container">
                 <table className="sales-table">
@@ -109,8 +109,12 @@ export default function GestionDepartamentos() {
                                 <td>{dept.nombre}</td>
                                 <td>{dept.descripcion}</td>
                                 <td>
-                                    <button onClick={() => openModalEditar(dept)}>Editar</button>
-                                    <button onClick={() => handleEliminar(dept.departamento_id)} style={{marginLeft: '10px', backgroundColor: '#dc3545', color: 'white'}}>Eliminar</button>
+                                    {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                                        <>
+                                            <button onClick={() => openModalEditar(dept)}>Editar</button>
+                                            <button onClick={() => handleEliminar(dept.departamento_id)} style={{marginLeft: '10px', backgroundColor: '#dc3545', color: 'white'}}>Eliminar</button>
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                         ))}

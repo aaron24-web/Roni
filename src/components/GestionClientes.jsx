@@ -16,7 +16,6 @@ const estadoInicialCliente = {
     limite_credito: 0
 };
 
-// LA CORRECCIÓN ESTÁ AQUÍ: Añadimos '{ perfil }' para recibir la prop
 export default function GestionClientes({ perfil }) {
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -112,9 +111,11 @@ export default function GestionClientes({ perfil }) {
 
             {showEstadoCuenta && <EstadoCuentaModal cliente={currentClient} perfil={perfil} onClose={() => setShowEstadoCuenta(false)} />}
 
-            <div className="search-bar">
+            <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Clientes</h2>
-                <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Cliente</button>
+                {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                    <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Cliente</button>
+                )}
             </div>
             <div className="table-container">
                 <table className="sales-table">
@@ -135,7 +136,9 @@ export default function GestionClientes({ perfil }) {
                                 <td>{cliente.email || 'N/A'}</td>
                                 <td>${parseFloat(cliente.limite_credito).toFixed(2)}</td>
                                 <td>
-                                    <button onClick={() => openModalEditar(cliente)}>Editar</button>
+                                    {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                                        <button onClick={() => openModalEditar(cliente)}>Editar</button>
+                                    )}
                                     <button onClick={() => handleOpenEstadoCuenta(cliente)} style={{marginLeft: '10px'}}>Estado de Cuenta</button>
                                 </td>
                             </tr>

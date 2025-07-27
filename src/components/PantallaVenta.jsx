@@ -4,10 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import './PantallaVenta.css';
 
-export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVentaCompleta }) {
-    // El estado del carrito y su lógica principal ahora se manejan en App.jsx.
-    // Este componente solo recibe el carrito actual y notifica los cambios.
-
+// El componente ahora recibe 'corteActivo' como una prop más
+export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVentaCompleta, corteActivo }) {
     const [total, setTotal] = useState(0);
     const [modalAbierto, setModalAbierto] = useState(false);
     const [terminoBusqueda, setTerminoBusqueda] = useState('');
@@ -33,7 +31,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         return () => clearTimeout(timer);
     }, [terminoBusqueda, modalAbierto]);
 
-    // Efecto para calcular el total del carrito (usa el carrito de las props)
+    // Efecto para calcular el total del carrito
     useEffect(() => {
         const nuevoTotal = carrito.reduce((sum, item) => sum + item.importe, 0);
         setTotal(nuevoTotal);
@@ -85,7 +83,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                 importe: productoInfo.precio_venta
             }];
         }
-        onCarritoChange(nuevoCarrito); // Notificamos a App.jsx del cambio
+        onCarritoChange(nuevoCarrito);
     };
 
     const reducirCantidad = (productoId) => {
@@ -100,7 +98,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                     : item
             );
         }
-        onCarritoChange(nuevoCarrito); // Notificamos a App.jsx del cambio
+        onCarritoChange(nuevoCarrito);
     };
 
     const agregarAlCarrito = (producto) => {
@@ -113,6 +111,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const handleConfirmarVenta = async () => {
         if (!metodoSeleccionado) return alert("Por favor, selecciona un método de pago.");
         if (carrito.length === 0) return alert("El carrito está vacío.");
+        if (!corteActivo) return alert("Error: No hay una caja activa. No se puede registrar la venta.");
 
         const carritoParaBD = carrito.map(item => ({
             producto_id: item.producto_id,
@@ -126,16 +125,15 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         try {
             const { data: nuevaVentaId, error } = await supabase.rpc('registrar_venta_completa', {
                 empleado_id_param: perfil.empleado_id,
-                cliente_id_param: 1, // Público en General por defecto
+                cliente_id_param: 1,
                 metodo_pago_id_param: metodoSeleccionado,
+                corte_id_param: corteActivo.corte_id,
                 carrito_param: carritoParaBD
             });
 
             if (error) throw error;
-
             alert(`¡Venta #${nuevaVentaId} registrada exitosamente!`);
-
-            onVentaCompleta(); // Notificamos a App.jsx que la venta terminó para que cierre el ticket
+            onVentaCompleta();
             setCheckoutModalAbierto(false);
             setMontoRecibido('');
         } catch (error) {
@@ -144,8 +142,19 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         }
     };
 
-
     // --- RENDERIZADO (JSX) ---
+
+    // Si no hay caja activa, mostramos un aviso y bloqueamos la pantalla
+    if (!corteActivo) {
+        return (
+            <div className="pos-container" style={{textAlign: 'center', paddingTop: '50px'}}>
+                <h2 style={{color: '#dc3545'}}>La caja está cerrada</h2>
+                <p>Por favor, ve a la pestaña <strong>Caja</strong> para iniciar un nuevo turno y poder registrar ventas.</p>
+            </div>
+        );
+    }
+    
+    // Si la caja sí está activa, se muestra la pantalla de ventas normal
     return (
         <div className="pos-container">
             {/* Modal de Búsqueda */}
@@ -157,7 +166,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                     <ul className="search-results-list" style={{ position: 'relative', width: '100%' }}>
                       {resultados.map(producto => (
                         <li key={producto.producto_id} onClick={() => agregarAlCarrito(producto)}>
-                          {producto.descripcion} - <strong>${producto.precio_venta.toFixed(2)}</strong>
+                          {producto.descripcion} - <strong>${parseFloat(producto.precio_venta).toFixed(2)}</strong>
                         </li>
                       ))}
                     </ul>
@@ -213,9 +222,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
 
             {/* Pantalla Principal */}
             <div className="search-bar">
-                <button className="pos-button" onClick={() => setModalAbierto(true)}>
-                    [F10] Buscar Producto
-                </button>
+                <button className="pos-button" onClick={() => setModalAbierto(true)}>[F10] Buscar Producto</button>
             </div>
             <div className="table-container">
                 <table className="sales-table">
@@ -236,8 +243,8 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                         <tr key={item.producto_id}>
                           <td>{item.cantidad}</td>
                           <td>{item.descripcion}</td>
-                          <td>${item.precio_unitario_registrado.toFixed(2)}</td>
-                          <td>${item.importe.toFixed(2)}</td>
+                          <td>${parseFloat(item.precio_unitario_registrado).toFixed(2)}</td>
+                          <td>${parseFloat(item.importe).toFixed(2)}</td>
                           <td>
                             <div className="quantity-controls">
                               <button className="quantity-btn" onClick={() => reducirCantidad(item.producto_id)}>-</button>

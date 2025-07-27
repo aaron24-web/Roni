@@ -23,7 +23,7 @@ const tiposDeProducto = [
     { value: 'KIT', label: 'Como Paquete (Kit)' }
 ];
 
-export default function GestionProductos() {
+export default function GestionProductos({ perfil }) {
     const [productos, setProductos] = useState([]);
     const [productosFiltrados, setProductosFiltrados] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -175,7 +175,9 @@ export default function GestionProductos() {
             <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Productos</h2>
                 <input type="text" placeholder="Buscar producto por nombre o código..." className="pos-input" style={{ width: '40%' }} value={terminoBusqueda} onChange={(e) => setTerminoBusqueda(e.target.value)}/>
-                <button className="pos-button" onClick={abrirModalNuevo}>Añadir Nuevo Producto</button>
+                {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                    <button className="pos-button" onClick={abrirModalNuevo}>Añadir Nuevo Producto</button>
+                )}
             </div>
             
             {terminoBusqueda ? (
@@ -200,7 +202,9 @@ export default function GestionProductos() {
                                     <td>${parseFloat(producto.precio_costo).toFixed(2)}</td>
                                     <td>${parseFloat(producto.precio_venta).toFixed(2)}</td>
                                     <td>
-                                        <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
+                                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
+                                            <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
