@@ -208,3 +208,14 @@
   display: block;
   margin-bottom: 5px;
 }
+.customer-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  max-height: 150px;
+  overflow-y: auto;
+  position: relative; /* Ajuste para que se muestre correctamente */
+}

@@ -19,10 +19,12 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const [clientes, setClientes] = useState([]);
     const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState('1');
     const [productoParaCantidad, setProductoParaCantidad] = useState(null);
-    
-    // Estados para el flujo de aprobación
     const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [actionToApprove, setActionToApprove] = useState(null);
+    
+    // Estados para el buscador de clientes
+    const [busquedaCliente, setBusquedaCliente] = useState('');
+    const [clientesFiltrados, setClientesFiltrados] = useState([]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -67,49 +69,67 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         }
     }, [montoRecibido, total]);
 
+    useEffect(() => {
+        if (busquedaCliente) {
+            const clienteExacto = clientes.find(c => c.nombre.toLowerCase() === busquedaCliente.toLowerCase());
+            if (clienteExacto) {
+                setClientesFiltrados([]);
+                return;
+            }
+            const filtrados = clientes.filter(c => c.nombre.toLowerCase().includes(busquedaCliente.toLowerCase()));
+            setClientesFiltrados(filtrados);
+        } else {
+            setClientesFiltrados([]);
+        }
+    }, [busquedaCliente, clientes]);
+
+    const handleSelectCliente = (cliente) => {
+        setClienteSeleccionadoId(cliente.cliente_id.toString());
+        setBusquedaCliente(cliente.nombre);
+        setClientesFiltrados([]);
+    };
+
+    const handleOpenCheckout = () => {
+        const cliente = clientes.find(c => c.cliente_id.toString() === clienteSeleccionadoId);
+        if (cliente) {
+            setBusquedaCliente(cliente.nombre);
+        } else {
+             setBusquedaCliente('');
+             setClienteSeleccionadoId('1'); // Volver a público en general si no hay nada
+        }
+        setCheckoutModalAbierto(true);
+    };
+
     const aumentarCantidad = (productoId, productoInfo = null) => {
         const itemExistente = carrito.find(item => item.producto_id === productoId);
         let nuevoCarrito;
         if (itemExistente) {
             nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad + 1, importe: (item.cantidad + 1) * item.precio_unitario_registrado } : item);
         } else if (productoInfo) {
-            nuevoCarrito = [...carrito, {
-                producto_id: productoInfo.producto_id,
-                descripcion: productoInfo.descripcion,
-                cantidad: 1,
-                precio_unitario_registrado: productoInfo.precio_venta,
-                importe: productoInfo.precio_venta,
-                tipo_producto: productoInfo.tipo_producto,
-                unidad_medida: productoInfo.unidad_medida
-            }];
+            nuevoCarrito = [...carrito, { producto_id: productoInfo.producto_id, descripcion: productoInfo.descripcion, cantidad: 1, precio_unitario_registrado: productoInfo.precio_venta, importe: productoInfo.precio_venta, tipo_producto: productoInfo.tipo_producto, unidad_medida: productoInfo.unidad_medida }];
         }
         onCarritoChange(nuevoCarrito);
     };
 
     const reducirCantidad = (productoId) => {
         const itemExistente = carrito.find(item => item.producto_id === productoId);
-        let nuevoCarrito;
         if (itemExistente.cantidad === 1) {
-            eliminarDelCarrito(productoId); // Ahora llama a la función principal de eliminar
+            eliminarDelCarrito(productoId);
             return;
         } else {
-            nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad - 1, importe: (item.cantidad - 1) * item.precio_unitario_registrado } : item);
+            const nuevoCarrito = carrito.map(item => item.producto_id === productoId ? { ...item, cantidad: item.cantidad - 1, importe: (item.cantidad - 1) * item.precio_unitario_registrado } : item);
+            onCarritoChange(nuevoCarrito);
         }
-        onCarritoChange(nuevoCarrito);
     };
 
     const eliminarDelCarrito = (productoId) => {
         const isAdmin = perfil?.nombre_rol?.toLowerCase() === 'administrador';
-
         const doRemove = () => {
             const nuevoCarrito = carrito.filter(item => item.producto_id !== productoId);
             onCarritoChange(nuevoCarrito);
         };
-
         if (isAdmin) {
-            if (window.confirm("¿Estás seguro de que quieres quitar este producto del ticket?")) {
-                doRemove();
-            }
+            if (window.confirm("¿Estás seguro de que quieres quitar este producto del ticket?")) doRemove();
         } else {
             setActionToApprove(() => doRemove);
             setShowApprovalModal(true);
@@ -117,9 +137,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     };
 
     const handleApprovalSuccess = () => {
-        if (actionToApprove) {
-            actionToApprove();
-        }
+        if (actionToApprove) actionToApprove();
         setShowApprovalModal(false);
         setActionToApprove(null);
     };
@@ -142,15 +160,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         if (itemExistente) {
              nuevoCarrito = carrito.map(item => item.producto_id === producto.producto_id ? { ...item, cantidad: cantidad, importe: cantidad * item.precio_unitario_registrado } : item);
         } else {
-            nuevoCarrito = [...carrito, {
-                producto_id: producto.producto_id,
-                descripcion: producto.descripcion,
-                cantidad: cantidad,
-                precio_unitario_registrado: producto.precio_venta,
-                importe: cantidad * producto.precio_venta,
-                tipo_producto: producto.tipo_producto,
-                unidad_medida: producto.unidad_medida
-            }];
+            nuevoCarrito = [...carrito, { producto_id: producto.producto_id, descripcion: producto.descripcion, cantidad: cantidad, precio_unitario_registrado: producto.precio_venta, importe: cantidad * producto.precio_venta, tipo_producto: producto.tipo_producto, unidad_medida: producto.unidad_medida }];
         }
         onCarritoChange(nuevoCarrito);
         setProductoParaCantidad(null);
@@ -160,25 +170,12 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         if (!metodoSeleccionado) return alert("Por favor, selecciona un método de pago.");
         if (carrito.length === 0) return alert("El carrito está vacío.");
         if (!corteActivo) return alert("Error: No hay una caja activa.");
+        if (!clienteSeleccionadoId) return alert("Por favor, selecciona un cliente válido.");
 
-        const carritoParaBD = carrito.map(item => ({
-            producto_id: item.producto_id,
-            cantidad: item.cantidad,
-            precio_unitario_registrado: item.precio_unitario_registrado,
-            impuesto_aplicado: 0,
-            importe_total: item.importe,
-            descripcion_registrada: item.descripcion
-        }));
+        const carritoParaBD = carrito.map(item => ({ producto_id: item.producto_id, cantidad: item.cantidad, precio_unitario_registrado: item.precio_unitario_registrado, impuesto_aplicado: 0, importe_total: item.importe, descripcion_registrada: item.descripcion }));
 
         try {
-            const { data: nuevaVentaId, error } = await supabase.rpc('registrar_venta_completa', {
-                empleado_id_param: perfil.empleado_id,
-                cliente_id_param: parseInt(clienteSeleccionadoId),
-                metodo_pago_id_param: metodoSeleccionado,
-                corte_id_param: corteActivo.corte_id,
-                carrito_param: carritoParaBD
-            });
-
+            const { data: nuevaVentaId, error } = await supabase.rpc('registrar_venta_completa', { empleado_id_param: perfil.empleado_id, cliente_id_param: parseInt(clienteSeleccionadoId), metodo_pago_id_param: metodoSeleccionado, corte_id_param: corteActivo.corte_id, carrito_param: carritoParaBD });
             if (error) throw error;
             alert(`¡Venta #${nuevaVentaId} registrada exitosamente!`);
             onVentaCompleta();
@@ -191,7 +188,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     };
 
     const clienteActual = clientes.find(c => c.cliente_id.toString() === clienteSeleccionadoId);
-
     if (!corteActivo) {
         return ( <div className="pos-container" style={{textAlign: 'center', paddingTop: '50px'}}><h2 style={{color: '#dc3545'}}>La caja está cerrada</h2><p>Por favor, ve a la pestaña <strong>Caja</strong> para iniciar un nuevo turno y poder registrar ventas.</p></div> );
     }
@@ -200,21 +196,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         <div className="pos-container">
             {showApprovalModal && <SupervisorApprovalModal onApprove={handleApprovalSuccess} onCancel={() => setShowApprovalModal(false)} />}
             {productoParaCantidad && <CantidadModal producto={productoParaCantidad} onConfirm={handleConfirmarCantidad} onCancel={() => setProductoParaCantidad(null)} />}
-            {modalAbierto && (
-                <div className="modal-overlay" onClick={() => setModalAbierto(false)}>
-                  <div className="modal-content" onClick={e => e.stopPropagation()}>
-                    <h3>Buscar Producto</h3>
-                    <input type="text" className="pos-input" placeholder="Escribe para buscar..." value={terminoBusqueda} onChange={e => setTerminoBusqueda(e.target.value)} autoFocus />
-                    <ul className="search-results-list" style={{ position: 'relative', width: '100%' }}>
-                      {resultados.map(producto => (
-                        <li key={producto.producto_id} onClick={() => agregarAlCarrito(producto)}>
-                          {producto.descripcion} - <strong>${parseFloat(producto.precio_venta).toFixed(2)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-            )}
+            {modalAbierto && ( <div className="modal-overlay" onClick={() => setModalAbierto(false)}> <div className="modal-content" onClick={e => e.stopPropagation()}> <h3>Buscar Producto</h3> <input type="text" className="pos-input" placeholder="Escribe para buscar..." value={terminoBusqueda} onChange={e => setTerminoBusqueda(e.target.value)} autoFocus /> <ul className="search-results-list" style={{ position: 'relative', width: '100%' }}> {resultados.map(producto => ( <li key={producto.producto_id} onClick={() => agregarAlCarrito(producto)}> {producto.descripcion} - <strong>${parseFloat(producto.precio_venta).toFixed(2)}</strong> </li> ))} </ul> </div> </div> )}
             {checkoutModalAbierto && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -222,12 +204,15 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                         <h3>Total a Pagar: ${total.toFixed(2)}</h3>
                         <hr />
                         <div className="customer-selection">
-                            <label htmlFor="cliente">Asignar Venta a:</label>
-                            <select id="cliente" value={clienteSeleccionadoId} onChange={(e) => setClienteSeleccionadoId(e.target.value)} className="pos-input">
-                                {clientes.map(cliente => (
-                                    <option key={cliente.cliente_id} value={cliente.cliente_id}>{cliente.nombre}</option>
-                                ))}
-                            </select>
+                            <label htmlFor="cliente-search">Asignar Venta a:</label>
+                            <input id="cliente-search" type="text" className="pos-input" value={busquedaCliente} onChange={(e) => { setBusquedaCliente(e.target.value); if(e.target.value === '') setClienteSeleccionadoId('1'); }} placeholder="Buscar cliente por nombre..." />
+                            {clientesFiltrados.length > 0 && (
+                                <ul className="customer-search-results">
+                                    {clientesFiltrados.map(cliente => (
+                                        <li key={cliente.cliente_id} onClick={() => handleSelectCliente(cliente)}>{cliente.nombre}</li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
                         <h4>Método de Pago</h4>
                         <div className="payment-methods">
@@ -291,11 +276,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                                   <button className="quantity-btn" onClick={() => aumentarCantidad(item.producto_id)}>+</button>
                                 </div>
                             )}
-                            <button 
-                                onClick={() => eliminarDelCarrito(item.producto_id)} 
-                                style={{backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer'}}
-                                title="Quitar producto del ticket"
-                            >X</button>
+                            <button onClick={() => eliminarDelCarrito(item.producto_id)} style={{backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer'}} title="Quitar producto del ticket">X</button>
                           </td>
                         </tr>
                       ))
@@ -305,7 +286,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
             </div>
             <div className="footer">
                 <div className="total-display">Total: ${total.toFixed(2)}</div>
-                <button className="checkout-btn" onClick={() => setCheckoutModalAbierto(true)} disabled={carrito.length === 0}>Cobrar</button>
+                <button className="checkout-btn" onClick={handleOpenCheckout} disabled={carrito.length === 0}>Cobrar</button>
             </div>
         </div>
     );

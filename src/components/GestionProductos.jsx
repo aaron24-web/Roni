@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import AddStockModal from './AddStockModal';
 import './PantallaVenta.css';
 
 const estadoInicialProducto = {
@@ -33,6 +34,9 @@ export default function GestionProductos({ perfil }) {
     const [productoActual, setProductoActual] = useState(estadoInicialProducto);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [departamentos, setDepartamentos] = useState([]);
+
+    // Estado para el modal de añadir stock
+    const [productoParaStock, setProductoParaStock] = useState(null);
 
     const fetchProductos = async () => {
         setLoading(true);
@@ -123,6 +127,26 @@ export default function GestionProductos({ perfil }) {
         }
     };
 
+    const handleConfirmarEntradaStock = async (productoId, cantidad) => {
+        try {
+            const { error } = await supabase.rpc('registrar_entrada_stock', {
+                producto_id_param: productoId,
+                cantidad_param: cantidad,
+                empleado_id_param: perfil.empleado_id
+            });
+            if (error) throw error;
+            alert("Stock añadido exitosamente.");
+            setProductoParaStock(null);
+            fetchProductos();
+        } catch (error) {
+            alert(`Error al añadir stock: ${error.message}`);
+        }
+    };
+
+    if (loading && productos.length === 0) {
+        return <div style={{padding: '20px'}}>Cargando...</div>;
+    }
+
     return (
         <div className="pos-container">
             {modalAbierto && (
@@ -172,6 +196,14 @@ export default function GestionProductos({ perfil }) {
                 </div>
             )}
 
+            {productoParaStock && (
+                <AddStockModal
+                    producto={productoParaStock}
+                    onConfirm={handleConfirmarEntradaStock}
+                    onCancel={() => setProductoParaStock(null)}
+                />
+            )}
+
             <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Productos</h2>
                 <input type="text" placeholder="Buscar producto por nombre o código..." className="pos-input" style={{ width: '40%' }} value={terminoBusqueda} onChange={(e) => setTerminoBusqueda(e.target.value)}/>
@@ -187,8 +219,7 @@ export default function GestionProductos({ perfil }) {
                             <tr>
                                 <th>Código de Barras</th>
                                 <th>Descripción</th>
-                                <th>Departamento</th>
-                                <th>Precio Costo</th>
+                                <th>Stock Actual</th>
                                 <th>Precio Venta</th>
                                 <th>Acciones</th>
                             </tr>
@@ -198,12 +229,14 @@ export default function GestionProductos({ perfil }) {
                                 <tr key={producto.producto_id}>
                                     <td>{producto.codigo_barras || 'N/A'}</td>
                                     <td>{producto.descripcion}</td>
-                                    <td>{producto.departamentos?.nombre || 'N/A'}</td>
-                                    <td>${parseFloat(producto.precio_costo).toFixed(2)}</td>
+                                    <td>{producto.inventario[0]?.cantidad_actual || 0} {producto.unidad_medida}</td>
                                     <td>${parseFloat(producto.precio_venta).toFixed(2)}</td>
-                                    <td>
+                                    <td style={{display: 'flex', gap: '5px'}}>
                                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
-                                            <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
+                                            <>
+                                                <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
+                                                <button onClick={() => setProductoParaStock(producto)} style={{backgroundColor: '#17a2b8', color: 'white'}}>Añadir Stock</button>
+                                            </>
                                         )}
                                     </td>
                                 </tr>

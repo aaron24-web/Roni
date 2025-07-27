@@ -133,6 +133,7 @@ function App() {
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                         <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
                         
+                        {/* Pestañas solo para Administradores */}
                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
                             <>
                                 <button style={vistaActual === 'proveedores' ? navButtonSelected : navButton} onClick={() => setVistaActual('proveedores')}>Proveedores</button>
