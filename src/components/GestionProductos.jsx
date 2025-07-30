@@ -14,7 +14,8 @@ const estadoInicialProducto = {
     departamento_id: '',
     tipo_producto: 'UNITARIO',
     cantidad_actual: 0,
-    stock_minimo: 0
+    stock_minimo: 0,
+    promocion_id: null // Campo para la promoción
 };
 
 const tiposDeProducto = [
@@ -34,7 +35,7 @@ export default function GestionProductos({ perfil }) {
     const [productoActual, setProductoActual] = useState(estadoInicialProducto);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [departamentos, setDepartamentos] = useState([]);
-
+    const [promociones, setPromociones] = useState([]); // Estado para las promociones
     const [productoParaStock, setProductoParaStock] = useState(null);
 
     const fetchProductos = async () => {
@@ -56,6 +57,13 @@ export default function GestionProductos({ perfil }) {
             setDepartamentos(data || []);
         };
         fetchDepartamentos();
+
+        // Cargar las promociones activas
+        const fetchPromociones = async () => {
+            const { data } = await supabase.from('promociones').select('*').eq('activo', true);
+            setPromociones(data || []);
+        };
+        fetchPromociones();
     }, []);
 
     useEffect(() => {
@@ -99,8 +107,6 @@ export default function GestionProductos({ perfil }) {
     const handleGuardarProducto = async (e) => {
         e.preventDefault();
         try {
-            // --- CORRECCIÓN AQUÍ ---
-            // Nos aseguramos de que los valores numéricos sean números y no texto vacío
             const params = {
                 descripcion_param: productoActual.descripcion,
                 codigo_barras_param: productoActual.codigo_barras || null,
@@ -109,7 +115,8 @@ export default function GestionProductos({ perfil }) {
                 departamento_id_param: parseInt(productoActual.departamento_id),
                 tipo_producto_param: productoActual.tipo_producto,
                 cantidad_actual_param: parseFloat(productoActual.cantidad_actual) || 0,
-                stock_minimo_param: parseFloat(productoActual.stock_minimo) || 0
+                stock_minimo_param: parseFloat(productoActual.stock_minimo) || 0,
+                promocion_id_param: productoActual.promocion_id || null
             };
 
             if (modoEdicion) {
@@ -161,33 +168,31 @@ export default function GestionProductos({ perfil }) {
                             <label>Se vende por:</label>
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '10px' }}>
                                 {tiposDeProducto.map(tipo => (
-                                    <label key={tipo.value}>
-                                        <input type="radio" name="tipo_producto" value={tipo.value} checked={productoActual.tipo_producto === tipo.value} onChange={handleInputChange}/> {tipo.label}
-                                    </label>
+                                    <label key={tipo.value}><input type="radio" name="tipo_producto" value={tipo.value} checked={productoActual.tipo_producto === tipo.value} onChange={handleInputChange}/> {tipo.label}</label>
                                 ))}
                             </div>
                             
                             <label>Código de Barras:</label>
                             <input type="text" name="codigo_barras" value={productoActual.codigo_barras || ''} onChange={handleInputChange} className="pos-input"/>
-                            
                             <label>Precio Costo:</label>
                             <input type="number" step="0.01" name="precio_costo" value={productoActual.precio_costo} onChange={handleInputChange} required className="pos-input"/>
-                            
                             <label>Precio Venta:</label>
                             <input type="number" step="0.01" name="precio_venta" value={productoActual.precio_venta} onChange={handleInputChange} required className="pos-input"/>
-
                             <label>Cantidad Actual:</label>
                             <input type="number" step="any" name="cantidad_actual" value={productoActual.cantidad_actual} onChange={handleInputChange} required className="pos-input"/>
-                            
                             <label>Stock Mínimo:</label>
                             <input type="number" step="any" name="stock_minimo" value={productoActual.stock_minimo} onChange={handleInputChange} required className="pos-input"/>
-
                             <label>Departamento:</label>
                             <select name="departamento_id" value={productoActual.departamento_id} onChange={handleInputChange} required className="pos-input">
-                                {departamentos.map(dep => (
-                                    <option key={dep.departamento_id} value={dep.departamento_id}>{dep.nombre}</option>
-                                ))}
+                                {departamentos.map(dep => (<option key={dep.departamento_id} value={dep.departamento_id}>{dep.nombre}</option>))}
                             </select>
+
+                            <label>Asignar Promoción (Opcional):</label>
+                            <select name="promocion_id" value={productoActual.promocion_id || ''} onChange={handleInputChange} className="pos-input">
+                                <option value="">-- Sin Promoción --</option>
+                                {promociones.map(promo => (<option key={promo.promocion_id} value={promo.promocion_id}>{promo.nombre}</option>))}
+                            </select>
+
                             <div className="footer" style={{marginTop: '20px'}}>
                                 <button type="button" className="pos-button" style={{backgroundColor: '#6c757d'}} onClick={() => setModalAbierto(false)}>Cancelar</button>
                                 <button type="submit" className="checkout-btn">{modoEdicion ? 'Guardar Cambios' : 'Guardar Producto'}</button>
@@ -196,34 +201,17 @@ export default function GestionProductos({ perfil }) {
                     </div>
                 </div>
             )}
-
-            {productoParaStock && (
-                <AddStockModal
-                    producto={productoParaStock}
-                    onConfirm={handleConfirmarEntradaStock}
-                    onCancel={() => setProductoParaStock(null)}
-                />
-            )}
-
+            {productoParaStock && (<AddStockModal producto={productoParaStock} onConfirm={handleConfirmarEntradaStock} onCancel={() => setProductoParaStock(null)}/>)}
             <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Productos</h2>
                 <input type="text" placeholder="Buscar producto por nombre o código..." className="pos-input" style={{ width: '40%' }} value={terminoBusqueda} onChange={(e) => setTerminoBusqueda(e.target.value)}/>
-                {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
-                    <button className="pos-button" onClick={abrirModalNuevo}>Añadir Nuevo Producto</button>
-                )}
+                {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (<button className="pos-button" onClick={abrirModalNuevo}>Añadir Nuevo Producto</button>)}
             </div>
-            
             {terminoBusqueda ? (
                 <div className="table-container">
                     <table className="sales-table">
                         <thead>
-                            <tr>
-                                <th>Código de Barras</th>
-                                <th>Descripción</th>
-                                <th>Stock Actual</th>
-                                <th>Precio Venta</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>Código de Barras</th><th>Descripción</th><th>Stock Actual</th><th>Precio Venta</th><th>Acciones</th></tr>
                         </thead>
                         <tbody>
                             {productosFiltrados.map(producto => (
@@ -245,9 +233,7 @@ export default function GestionProductos({ perfil }) {
                         </tbody>
                     </table>
                 </div>
-            ) : (
-                <div className="initial-message"><h3>Utiliza la barra de búsqueda para encontrar un producto.</h3></div>
-            )}
+            ) : (<div className="initial-message"><h3>Utiliza la barra de búsqueda para encontrar un producto.</h3></div>)}
         </div>
     );
 }
