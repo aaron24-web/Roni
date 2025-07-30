@@ -54,24 +54,36 @@ export default function GestionProveedores() {
     };
 
     const handleGuardar = async (e) => {
-        e.preventDefault();
-        const { proveedor_id, ...proveedorData } = currentProveedor;
-        let error;
+    e.preventDefault();
+    const { proveedor_id, ...proveedorData } = currentProveedor;
+    let error;
 
+    try {
         if (isEditing) {
             ({ error } = await supabase.from('proveedores').update(proveedorData).eq('proveedor_id', proveedor_id));
         } else {
             ({ error } = await supabase.from('proveedores').insert([proveedorData]));
         }
 
+        // --- MANEJO DE ERROR MEJORADO ---
         if (error) {
-            alert(`Error: ${error.message}`);
+            // Si el mensaje de error de la base de datos incluye el nombre de nuestra restricción...
+            if (error.message.includes('chk_rfc_formato')) {
+                // ...mostramos un aviso amigable.
+                alert("Error: El formato del RFC introducido no es válido.");
+            } else {
+                // Para cualquier otro error, mostramos el mensaje técnico.
+                throw error;
+            }
         } else {
             alert(`Proveedor ${isEditing ? 'actualizado' : 'creado'} exitosamente.`);
             setShowModal(false);
             fetchProveedores();
         }
-    };
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+};
 
     const handleEliminar = async (proveedorId) => {
         if (window.confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {

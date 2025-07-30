@@ -59,21 +59,43 @@ export default function GestionClientes({ perfil }) {
     };
 
     const handleGuardar = async (e) => {
-        e.preventDefault();
-        const { cliente_id, ...clientData } = currentClient;
-        let error;
+    e.preventDefault();
+    const { cliente_id, ...clientData } = currentClient;
+    let error;
+
+    try {
         if (isEditing) {
             ({ error } = await supabase.from('clientes').update(clientData).eq('cliente_id', cliente_id));
         } else {
             ({ error } = await supabase.from('clientes').insert([clientData]));
         }
-        if (error) alert(`Error: ${error.message}`);
-        else {
+
+        if (error) {
+            // Si el error es por la restricción de teléfono
+            if (error.message.includes('chk_telefono_numerico')) {
+                alert("Error: El formato del teléfono no es válido. Ingresa solo números (10-15 dígitos).");
+            }
+            // Si el error es por la restricción de RFC
+            else if (error.message.includes('chk_rfc_formato')) {
+                alert("Error: El formato del RFC introducido no es válido.");
+            }
+            // --- NUEVO: Si el error es por RFC duplicado ---
+            else if (error.message.includes('clientes_rfc_key')) {
+                alert("Error: El RFC introducido ya está registrado para otro cliente.");
+            }
+            // Para cualquier otro error
+            else {
+                throw error;
+            }
+        } else {
             alert(`Cliente ${isEditing ? 'actualizado' : 'creado'} exitosamente.`);
             setShowModal(false);
             fetchClientes();
         }
-    };
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+};
 
     if (loading) return <div>Cargando clientes...</div>;
 

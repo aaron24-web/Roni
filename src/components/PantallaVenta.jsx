@@ -21,7 +21,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const [productoParaCantidad, setProductoParaCantidad] = useState(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [actionToApprove, setActionToApprove] = useState(null);
-    
     const [busquedaCliente, setBusquedaCliente] = useState('');
     const [clientesFiltrados, setClientesFiltrados] = useState([]);
 
@@ -56,28 +55,27 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     }, [terminoBusqueda, modalAbierto]);
 
     const calcularImporteFinal = (item) => {
+        item.importe = item.cantidad * item.precio_unitario_registrado;
         const ahora = new Date();
         const promo = item.promociones;
-        const importeSinPromo = item.cantidad * item.precio_unitario_registrado;
-
         if (!promo || !promo.activo || new Date(promo.fecha_inicio) > ahora || (promo.fecha_fin && new Date(promo.fecha_fin) < ahora)) {
-            return importeSinPromo;
+            return item.importe;
         }
-
         switch (promo.tipo_promocion) {
             case 'PORCENTAJE': {
-                const descuento = importeSinPromo * (promo.valor / 100);
-                return importeSinPromo - descuento;
+                const descuento = item.importe * (promo.valor / 100);
+                return item.importe - descuento;
             }
             case 'CANTIDAD_X_CANTIDAD': {
-                const cantidadAPagar = Math.ceil(item.cantidad / promo.valor);
-                return cantidadAPagar * item.precio_unitario_registrado;
+                const cantidadPagable = Math.floor(item.cantidad / promo.valor);
+                const cantidadSobrante = item.cantidad % promo.valor;
+                return (cantidadPagable + cantidadSobrante) * item.precio_unitario_registrado;
             }
             default:
-                return importeSinPromo;
+                return item.importe;
         }
     };
-
+    
     useEffect(() => {
         const nuevoTotal = carrito.reduce((sum, item) => sum + calcularImporteFinal(item), 0);
         setTotal(nuevoTotal);
@@ -99,7 +97,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         let itemActualizado;
         const itemExistente = carrito.find(item => item.producto_id === productoId);
         let nuevoCarrito;
-
         if (itemExistente) {
             nuevoCarrito = carrito.map(item => {
                 if (item.producto_id === productoId) {
@@ -122,9 +119,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         } else {
             return;
         }
-
         onCarritoChange(nuevoCarrito);
-
         const promo = itemActualizado?.promociones;
         if (promo && promo.activo && promo.tipo_promocion === 'CANTIDAD_X_CANTIDAD' && itemActualizado.cantidad < promo.valor) {
             if (itemActualizado.cantidad % promo.valor !== 0) {
@@ -177,7 +172,17 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     };
 
     const handleConfirmarVenta = async () => {
-        if (!metodoSeleccionado || carrito.length === 0 || !corteActivo || !clienteSeleccionadoId) return alert("Verifica que el carrito no esté vacío y que hayas seleccionado un cliente y método de pago.");
+        if (!metodoSeleccionado) return alert("Por favor, selecciona un método de pago.");
+        if (carrito.length === 0) return alert("El carrito está vacío.");
+        if (!corteActivo) return alert("Error: No hay una caja activa.");
+        if (!clienteSeleccionadoId) return alert("Por favor, selecciona un cliente válido.");
+
+        // --- CORRECCIÓN AQUÍ ---
+        const pagoEnEfectivo = metodosPago.find(m => m.metodo_pago_id === metodoSeleccionado)?.nombre.toLowerCase() === 'efectivo';
+        if (pagoEnEfectivo && (parseFloat(montoRecibido) < total || !montoRecibido)) {
+            return alert("El monto recibido es menor que el total a pagar.");
+        }
+        
         const carritoParaBD = carrito.map(item => ({ producto_id: item.producto_id, cantidad: item.cantidad, precio_unitario_registrado: item.precio_unitario_registrado, impuesto_aplicado: 0, importe_total: calcularImporteFinal(item), descripcion_registrada: item.descripcion }));
         try {
             const { data: nuevaVentaId, error } = await supabase.rpc('registrar_venta_completa', { empleado_id_param: perfil.empleado_id, cliente_id_param: parseInt(clienteSeleccionadoId), metodo_pago_id_param: metodoSeleccionado, corte_id_param: corteActivo.corte_id, carrito_param: carritoParaBD });
@@ -192,7 +197,6 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
         }
     };
     
-    // (El resto de funciones auxiliares y useEffects no necesitan cambios)
     useEffect(() => {
         if (montoRecibido) {
             const cambioCalculado = parseFloat(montoRecibido) - total;
@@ -214,6 +218,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
     const handleSelectCliente = (cliente) => { setClienteSeleccionadoId(cliente.cliente_id.toString()); setBusquedaCliente(cliente.nombre); setClientesFiltrados([]); };
     const handleOpenCheckout = () => { const cliente = clientes.find(c => c.cliente_id.toString() === clienteSeleccionadoId); if (cliente) setBusquedaCliente(cliente.nombre); else { setBusquedaCliente(''); setClienteSeleccionadoId('1');} setCheckoutModalAbierto(true); };
     const clienteActual = clientes.find(c => c.cliente_id.toString() === clienteSeleccionadoId);
+    
     if (!corteActivo) return ( <div className="pos-container" style={{textAlign: 'center', paddingTop: '50px'}}><h2 style={{color: '#dc3545'}}>La caja está cerrada</h2><p>Por favor, ve a la pestaña <strong>Caja</strong> para iniciar un nuevo turno y poder registrar ventas.</p></div> );
     
     return (
@@ -231,7 +236,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                         <h4>Método de Pago</h4>
                         <div className="payment-methods">{metodosPago.map(metodo => { const isCredito = metodo.nombre.toLowerCase() === 'crédito tienda'; const isPublicoGeneral = clienteActual?.cliente_id === 1; const creditoNoPermitido = !clienteActual?.permite_credito; const isDisabled = isCredito && (isPublicoGeneral || creditoNoPermitido); return ( <button key={metodo.metodo_pago_id} className={`payment-btn ${metodoSeleccionado === metodo.metodo_pago_id ? 'selected' : ''}`} onClick={() => setMetodoSeleccionado(metodo.metodo_pago_id)} disabled={isDisabled} title={isDisabled ? 'Selecciona un cliente con crédito' : ''}>{metodo.nombre}</button> );})}</div>
                         {metodosPago.find(m => m.metodo_pago_id === metodoSeleccionado)?.nombre.toLowerCase() === 'efectivo' && (<div className="cash-payment"><label htmlFor="montoRecibido">Monto Recibido:</label><input id="montoRecibido" type="number" className="pos-input" value={montoRecibido} onChange={(e) => setMontoRecibido(e.target.value)} placeholder="0.00" /><div className="change-display">Cambio: ${cambio.toFixed(2)}</div></div>)}
-                        <div className="footer" style={{ justifyContent: 'space-between' }}><button className="pos-button" style={{backgroundColor: '#6c757d'}} onClick={() => setCheckoutModalAbierto(false)}>Cancelar</button><button className="checkout-btn" onClick={handleConfirmarVenta}>Confirmar Venta</button></div>
+                        <div className="footer" style={{ justifyContent: 'space-between', marginTop: '20px' }}><button className="pos-button" style={{backgroundColor: '#6c757d'}} onClick={() => setCheckoutModalAbierto(false)}>Cancelar</button><button className="checkout-btn" onClick={handleConfirmarVenta}>Confirmar Venta</button></div>
                     </div>
                 </div>
             )}
@@ -259,7 +264,7 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
                           </td>
                           <td style={{display: 'flex', gap: '5px', alignItems: 'center'}}>
                             {item.tipo_producto === 'GRANEL' ? (<button onClick={() => agregarAlCarrito(item)}>Editar</button>) : (<div className="quantity-controls"><button className="quantity-btn" onClick={() => reducirCantidad(item.producto_id)}>-</button><span className="quantity-display">{item.cantidad}</span><button className="quantity-btn" onClick={() => aumentarCantidad(item.producto_id, item)}>+</button></div>)}
-                            <button onClick={() => eliminarDelCarrito(item.producto_id)} style={{backgroundColor: '#dc3545', color: 'white'}} title="Quitar producto">X</button>
+                            <button onClick={() => eliminarDelCarrito(item.producto_id)} style={{backgroundColor: '#dc3545', color: 'white', border:'none', padding:'5px 10px', borderRadius:'4px', cursor:'pointer'}} title="Quitar producto">X</button>
                           </td>
                         </tr>
                       )})
