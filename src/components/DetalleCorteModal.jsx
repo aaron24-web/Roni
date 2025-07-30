@@ -12,27 +12,25 @@ export default function DetalleCorteModal({ corte, perfil, onClose }) {
     const [showVentaModal, setShowVentaModal] = useState(false);
     const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
 
+    // Definimos la función para que esté disponible en todo el componente
+    const fetchDetalles = async () => {
+        setLoading(true);
+        const { data: ventasData, error: ventasError } = await supabase.rpc('obtener_ventas_por_corte', {
+            corte_id_param: corte.corte_id
+        });
+        if (ventasError) console.error("Error al cargar detalles del corte:", ventasError);
+        else setVentas(ventasData || []);
+
+        const { data: deptoData, error: deptoError } = await supabase.rpc('obtener_ventas_por_depto', {
+            corte_id_param: corte.corte_id
+        });
+        if (deptoError) console.error("Error al cargar ventas por depto:", deptoError);
+        else setVentasPorDepto(deptoData || []);
+        
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const fetchDetalles = async () => {
-            setLoading(true);
-            
-            // Obtenemos la lista de ventas
-            const { data: ventasData, error: ventasError } = await supabase.rpc('obtener_ventas_por_corte', {
-                corte_id_param: corte.corte_id
-            });
-            if (ventasError) console.error("Error al cargar detalles del corte:", ventasError);
-            else setVentas(ventasData || []);
-
-            // Obtenemos el resumen por departamento
-            const { data: deptoData, error: deptoError } = await supabase.rpc('obtener_ventas_por_depto', {
-                corte_id_param: corte.corte_id
-            });
-            if (deptoError) console.error("Error al cargar ventas por depto:", deptoError);
-            else setVentasPorDepto(deptoData || []);
-            
-            setLoading(false);
-        };
-
         fetchDetalles();
     }, [corte.corte_id]);
 
@@ -47,10 +45,9 @@ export default function DetalleCorteModal({ corte, perfil, onClose }) {
                         motivo_param: motivo
                     }
                 });
-
                 if (error) throw error;
                 alert("Venta cancelada exitosamente. El inventario ha sido restaurado.");
-                fetchDetalles();
+                fetchDetalles(); // Ahora esta llamada es válida
             } catch (err) {
                 alert(`Error al cancelar la venta: ${err.message}`);
             }
@@ -65,13 +62,11 @@ export default function DetalleCorteModal({ corte, perfil, onClose }) {
     return (
         <div className="modal-overlay">
             {showVentaModal && <DetalleVentaModal venta={ventaSeleccionada} onClose={() => setShowVentaModal(false)} />}
-
             <div className="modal-content" style={{width: '80%', maxWidth: '900px'}}>
                 <h2>Detalles del Corte #{corte.corte_id}</h2>
                 <p><strong>Cierre:</strong> {new Date(corte.fecha_cierre).toLocaleString()}</p>
                 <p><strong>Empleado:</strong> {corte.nombre_empleado}</p>
                 <hr />
-
                 <h4>Ventas por Departamento</h4>
                 {loading ? <p>Calculando...</p> : (
                     <ul style={{paddingLeft: '20px', listStyle: 'square'}}>
@@ -84,7 +79,6 @@ export default function DetalleCorteModal({ corte, perfil, onClose }) {
                     </ul>
                 )}
                 <hr />
-
                 <h4>Ventas Realizadas en este Turno</h4>
                 {loading ? <p>Cargando ventas...</p> : (
                     <div className="table-container" style={{maxHeight: '40vh'}}>
