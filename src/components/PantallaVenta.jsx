@@ -194,7 +194,8 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
             const { data: nuevaVentaId, error } = await supabase.rpc('registrar_venta_completa', { empleado_id_param: perfil.empleado_id, cliente_id_param: parseInt(clienteSeleccionadoId), metodo_pago_id_param: metodoSeleccionado, corte_id_param: corteActivo.corte_id, carrito_param: carritoParaBD });
             if (error) throw error;
             alert(`¡Venta #${nuevaVentaId} registrada exitosamente!`);
-            onVentaCompleta();
+            // El ticket queda marcado como COBRADO y ligado a esta venta.
+            onVentaCompleta(nuevaVentaId);
             setCheckoutModalAbierto(false);
             setMontoRecibido('');
             setClienteSeleccionadoId('1');

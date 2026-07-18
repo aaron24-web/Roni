@@ -60,9 +60,51 @@ src/
   routes/       Guards de ruta (p. ej. solo administradores)
   lib/          Utilidades compartidas (roles, sanitización)
   supabaseClient.js   Cliente de Supabase (lee credenciales de .env.local)
-Backups/
+supabase/
   migrations/   Migraciones SQL versionadas (se aplican con psql)
+Backups/        Volcados de la base de datos — ignorado por git, nunca se sube
 ```
+
+### Migraciones vs. respaldos
+
+Son cosas distintas y se tratan distinto:
+
+- **`supabase/migrations/`** — el esquema como código. Se versiona en git:
+  permite reconstruir la base desde cero y deja historial de cada cambio.
+  No contiene datos ni credenciales.
+- **`Backups/`** — volcados con datos reales (clientes, ventas, correos de
+  empleados). **Ignorado por git.** Los respaldos deben guardarse fuera del
+  repositorio: usa los respaldos automáticos de Supabase o un
+  almacenamiento aparte.
+
+## Tickets y caja por terminal
+
+Cada computadora genera un `terminal_id` propio (guardado en su
+`localStorage`, ver `src/lib/terminal.js`). Con él:
+
+- **La caja es por terminal:** cada equipo abre y cuadra su propio corte.
+- **Los tickets viven en la base de datos** (tabla `tickets`, carrito en
+  `jsonb`) y son de la terminal que los abrió, así que sobreviven a
+  recargas, cierres accidentales o cortes de luz.
+
+### Pendiente a futuro: atomicidad al cobrar
+
+Hoy, al confirmar una venta ocurren **dos operaciones separadas**:
+
+1. `registrar_venta_completa(...)` crea la venta y su detalle.
+2. Acto seguido, el ticket se marca como `COBRADO` y se liga a esa venta.
+
+Si el proceso se interrumpiera justo entre ambas (caída de red, cierre del
+navegador), la venta quedaría registrada pero el ticket seguiría abierto.
+No se pierde dinero ni datos de la venta, pero el cajero vería un ticket
+fantasma que hay que descartar a mano.
+
+**Mejora propuesta:** pasar el `ticket_id` como parámetro a
+`registrar_venta_completa` y que la propia función marque el ticket dentro
+de su transacción, volviendo la operación atómica. No se hizo de inicio
+porque implica modificar una función central con dos sobrecargas y un tipo
+`detalle_venta_item[]`. Vale la pena hacerlo antes de operar con volumen
+alto de ventas.
 
 ## Despliegue
 

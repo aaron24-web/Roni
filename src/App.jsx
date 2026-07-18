@@ -22,13 +22,13 @@ import './App.css';
 // Envoltorios que conectan el estado compartido con los componentes de
 // pantalla, para no cambiar la API que ya tenían.
 function VentasRoute({ perfil }) {
-    const { ticketActivo, actualizarCarritoActivo, cerrarTicket, corteActivo } = usePos();
+    const { ticketActivo, actualizarCarritoActivo, marcarTicketCobrado, corteActivo } = usePos();
     return (
         <PantallaVenta
             perfil={perfil}
             carrito={ticketActivo.carrito}
             onCarritoChange={actualizarCarritoActivo}
-            onVentaCompleta={() => cerrarTicket(ticketActivo.id)}
+            onVentaCompleta={(ventaId) => marcarTicketCobrado(ticketActivo.id, ventaId)}
             corteActivo={corteActivo}
         />
     );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { getTerminalId, getTerminalNombre } from '../lib/terminal';
 import './PantallaVenta.css';
 
 // El componente ahora recibe onCajaStateChange para notificar a App.jsx
@@ -40,9 +41,11 @@ export default function CorteCaja({ perfil, corteActivo, onCajaStateChange }) {
         }
         setLoading(true);
         try {
+            // La caja es por terminal: cada computadora abre y cuadra la suya.
             const { data, error } = await supabase.rpc('abrir_caja', {
                 empleado_id_param: perfil.empleado_id,
-                saldo_inicial_param: montoInicial
+                saldo_inicial_param: montoInicial,
+                terminal_id_param: getTerminalId()
             });
             if (error) throw error;
             alert("Caja abierta exitosamente. ¡Listo para vender!");
@@ -90,7 +93,8 @@ export default function CorteCaja({ perfil, corteActivo, onCajaStateChange }) {
             <div className="pos-container" style={{ alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 150px)' }}>
                 <div style={{ padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', textAlign: 'center' }}>
                     <h2>Abrir Caja</h2>
-                    <p>No tienes una sesión de caja activa. Ingresa el fondo inicial para comenzar a vender.</p>
+                    <p style={{ color: '#6c757d' }}>Terminal: <strong>{getTerminalNombre()}</strong></p>
+                    <p>Esta terminal no tiene una sesión de caja activa. Ingresa el fondo inicial para comenzar a vender.</p>
                     <label htmlFor="fondoInicial" style={{fontWeight: 'bold'}}>Fondo de Caja Inicial:</label>
                     <input
                         id="fondoInicial"
@@ -146,6 +150,7 @@ export default function CorteCaja({ perfil, corteActivo, onCajaStateChange }) {
             )}
 
             <h2>Corte de Caja Activo</h2>
+            <p><strong>Terminal:</strong> {getTerminalNombre()}</p>
             <p><strong>Cajero que abrió:</strong> {perfil.nombre_completo}</p>
             <p><strong>Inicio de Turno:</strong> {new Date(corteActivo.fecha_hora_apertura).toLocaleString()}</p>
             <p><strong>Fondo Inicial:</strong> ${parseFloat(corteActivo.saldo_inicial_efectivo).toFixed(2)}</p>

@@ -17,10 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
-# Dumps/respaldos de base de datos (contienen datos y credenciales).
-# Las migraciones en Backups/migrations/ SÍ se versionan.
-Backups/*.sql
-Backups/*.bak
+# Respaldos/volcados de la base de datos: contienen datos reales y nunca
+# deben subirse. Las migraciones del esquema viven en supabase/migrations/
+# y ésas SÍ se versionan.
+Backups/
 
 # Editor directories and files
 .vscode/*
