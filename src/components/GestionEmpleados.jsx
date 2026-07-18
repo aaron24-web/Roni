@@ -1,13 +1,14 @@
 // src/components/GestionEmpleados.jsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import './PantallaVenta.css';
 
 const estadoInicialEmpleado = {
     nombre_completo: '',
+    email: '',
+    password: '',
     usuario: '',
-    contrasena_hash: '',
     rol_id: '',
     fecha_contratacion: new Date().toISOString().split('T')[0]
 };
@@ -16,6 +17,7 @@ export default function GestionEmpleados() {
     const [empleados, setEmpleados] = useState([]);
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [currentEmpleado, setCurrentEmpleado] = useState(estadoInicialEmpleado);
     const [isEditing, setIsEditing] = useState(false);
@@ -25,9 +27,9 @@ export default function GestionEmpleados() {
         const { data: empleadosData, error: empleadosError } = await supabase
             .from('empleados')
             .select('*, roles(nombre_rol)')
-            .eq('activo', true) // Solo mostrar empleados activos
+            .eq('activo', true)
             .order('nombre_completo');
-        
+
         const { data: rolesData, error: rolesError } = await supabase
             .from('roles')
             .select('*');
@@ -56,13 +58,13 @@ export default function GestionEmpleados() {
 
     const openModalEditar = (empleado) => {
         setIsEditing(true);
-        setCurrentEmpleado(empleado);
+        setCurrentEmpleado({ ...empleado, password: '' });
         setShowModal(true);
     };
 
     const handleGuardar = async (e) => {
         e.preventDefault();
-        
+        setSaving(true);
         try {
             if (isEditing) {
                 const { error } = await supabase.rpc('actualizar_empleado_directo', {
@@ -75,20 +77,29 @@ export default function GestionEmpleados() {
                 if (error) throw error;
                 alert('Empleado actualizado exitosamente.');
             } else {
-                const { error } = await supabase.rpc('crear_empleado_directo', {
-                    nombre_completo_param: currentEmpleado.nombre_completo,
-                    usuario_param: currentEmpleado.usuario,
-                    contrasena_param: currentEmpleado.contrasena_hash,
-                    rol_id_param: currentEmpleado.rol_id,
-                    fecha_contratacion_param: currentEmpleado.fecha_contratacion
+                if (currentEmpleado.password.length < 6) {
+                    throw new Error('La contraseña debe tener al menos 6 caracteres.');
+                }
+                // Crea el usuario de Supabase Auth + el empleado vinculado.
+                const { error } = await supabase.rpc('crear_empleado_con_auth', {
+                    p_email: currentEmpleado.email.trim(),
+                    p_password: currentEmpleado.password,
+                    p_nombre: currentEmpleado.nombre_completo,
+                    p_rol_id: currentEmpleado.rol_id,
+                    p_fecha_contratacion: currentEmpleado.fecha_contratacion
                 });
                 if (error) throw error;
-                alert('Empleado creado exitosamente.');
+                alert('Empleado creado exitosamente. Ya puede iniciar sesión con su correo.');
             }
             setShowModal(false);
             fetchEmpleadosYRoles();
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            const msg = error.message?.includes('duplicate') || error.message?.includes('unique')
+                ? 'Ya existe un empleado con ese correo.'
+                : error.message;
+            alert(`Error: ${msg}`);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -116,19 +127,36 @@ export default function GestionEmpleados() {
                         <form onSubmit={handleGuardar} style={{display: 'flex', flexDirection:'column', gap:'10px'}}>
                             <label>Nombre Completo:</label>
                             <input type="text" value={currentEmpleado.nombre_completo} onChange={(e) => setCurrentEmpleado({...currentEmpleado, nombre_completo: e.target.value})} required className="pos-input" />
-                            <label>Nombre de Usuario:</label>
-                            <input type="text" value={currentEmpleado.usuario} onChange={(e) => setCurrentEmpleado({...currentEmpleado, usuario: e.target.value})} required className="pos-input" />
-                            <label>Contraseña:</label>
-                            <input type="password" value={currentEmpleado.contrasena_hash} onChange={(e) => setCurrentEmpleado({...currentEmpleado, contrasena_hash: e.target.value})} required={!isEditing} disabled={isEditing} className="pos-input" />
+
+                            <label>Correo electrónico:</label>
+                            <input
+                                type="email"
+                                value={currentEmpleado.email || ''}
+                                onChange={(e) => setCurrentEmpleado({...currentEmpleado, email: e.target.value})}
+                                required
+                                disabled={isEditing}
+                                title={isEditing ? 'El correo no se puede cambiar aquí' : ''}
+                                className="pos-input"
+                            />
+
+                            {!isEditing && (
+                                <>
+                                    <label>Contraseña (mínimo 6 caracteres):</label>
+                                    <input type="password" value={currentEmpleado.password} onChange={(e) => setCurrentEmpleado({...currentEmpleado, password: e.target.value})} required minLength={6} className="pos-input" />
+                                </>
+                            )}
+
                             <label>Fecha de Contratación:</label>
                             <input type="date" value={new Date(currentEmpleado.fecha_contratacion).toISOString().split('T')[0]} onChange={(e) => setCurrentEmpleado({...currentEmpleado, fecha_contratacion: e.target.value})} required className="pos-input" />
+
                             <label>Rol:</label>
                             <select value={currentEmpleado.rol_id} onChange={(e) => setCurrentEmpleado({...currentEmpleado, rol_id: e.target.value})} required className="pos-input">
                                 {roles.map(rol => <option key={rol.rol_id} value={rol.rol_id}>{rol.nombre_rol}</option>)}
                             </select>
+
                             <div className="footer">
-                                <button type="button" className="pos-button" onClick={() => setShowModal(false)}>Cancelar</button>
-                                <button type="submit" className="checkout-btn">Guardar</button>
+                                <button type="button" className="pos-button" onClick={() => setShowModal(false)} disabled={saving}>Cancelar</button>
+                                <button type="submit" className="checkout-btn" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
                             </div>
                         </form>
                     </div>
@@ -140,17 +168,18 @@ export default function GestionEmpleados() {
                 <button className="pos-button" onClick={openModalNuevo}>Añadir Nuevo Empleado</button>
             </div>
             <div className="table-container">
+                {loading ? <p>Cargando...</p> : (
                 <table className="sales-table">
                     <thead>
-                        <tr><th>Nombre Completo</th><th>Usuario</th><th>Rol</th><th>Fecha Contratación</th><th>Acciones</th></tr>
+                        <tr><th>Nombre Completo</th><th>Correo</th><th>Rol</th><th>Fecha Contratación</th><th>Acciones</th></tr>
                     </thead>
                     <tbody>
                         {empleados.map(emp => (
                             <tr key={emp.empleado_id}>
                                 <td>{emp.nombre_completo}</td>
-                                <td>{emp.usuario}</td>
+                                <td>{emp.email || <span style={{color:'#999'}}>— sin acceso —</span>}</td>
                                 <td>{emp.roles.nombre_rol}</td>
-                                <td>{new Date(emp.fecha_contratacion).toLocaleDateString()}</td>
+                                <td>{emp.fecha_contratacion ? new Date(emp.fecha_contratacion).toLocaleDateString() : '—'}</td>
                                 <td>
                                     <button onClick={() => openModalEditar(emp)}>Editar</button>
                                     <button onClick={() => handleEliminar(emp.empleado_id)} style={{marginLeft: '10px', backgroundColor: '#dc3545', color: 'white'}}>Eliminar</button>
@@ -159,6 +188,7 @@ export default function GestionEmpleados() {
                         ))}
                     </tbody>
                 </table>
+                )}
             </div>
         </div>
     );
