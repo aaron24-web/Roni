@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from './types/database'
 
 // Las credenciales se leen desde variables de entorno (.env.local).
 // Nunca las escribas directamente en el código ni las subas al repositorio.
@@ -11,5 +12,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-// Se crea y exporta el cliente de Supabase para usarlo en toda la app
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// El genérico <Database> hace que cada consulta y RPC se valide contra el
+// esquema real: nombres de tabla, columnas y argumentos se autocompletan.
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
