@@ -11,7 +11,7 @@ import Login from './components/Login'
 import PantallaVenta from './components/PantallaVenta'
 import GestionEmpleados from './components/GestionEmpleados'
 import GestionProductos from './components/GestionProductos'
-import GestionDepartamentos from './components/GestionDepartamentos'
+import DepartamentosPage from './features/departamentos/DepartamentosPage'
 import GestionClientes from './components/GestionClientes'
 import CorteCaja from './components/CorteCaja'
 import Reportes from './components/Reportes'
@@ -78,7 +78,7 @@ export default function App() {
                         <Route path="/caja" element={<CajaRoute />} />
 
                         {/* Rutas exclusivas de administrador (ver matriz de roles) */}
-                        <Route path="/departamentos" element={soloAdmin(<GestionDepartamentos perfil={perfil} />)} />
+                        <Route path="/departamentos" element={soloAdmin(<DepartamentosPage />)} />
                         {/* Estas dos pantallas ya no necesitan `perfil`: leen el rol del contexto */}
                         <Route path="/proveedores" element={soloAdmin(<GestionProveedores />)} />
                         <Route path="/empleados" element={soloAdmin(<GestionEmpleados />)} />
