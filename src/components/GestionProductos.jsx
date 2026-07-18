@@ -222,11 +222,10 @@ export default function GestionProductos({ perfil }) {
                                     <td>${parseFloat(producto.precio_venta).toFixed(2)}</td>
                                     <td style={{display: 'flex', gap: '5px'}}>
                                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
-                                            <>
-                                                <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
-                                                <button onClick={() => setProductoParaStock(producto)} style={{backgroundColor: '#17a2b8', color: 'white'}}>Añadir Stock</button>
-                                            </>
+                                            <button onClick={() => abrirModalEdicion(producto)}>Editar</button>
                                         )}
+                                        {/* Entrada de stock: disponible para cajeros y administradores */}
+                                        <button onClick={() => setProductoParaStock(producto)} style={{backgroundColor: '#17a2b8', color: 'white'}}>Añadir Stock</button>
                                     </td>
                                 </tr>
                             ))}

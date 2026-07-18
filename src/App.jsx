@@ -176,12 +176,12 @@ function App() {
                     <nav style={navStyles}>
                         <button style={vistaActual === 'ventas' ? navButtonSelected : navButton} onClick={() => setVistaActual('ventas')}>Ventas</button>
                         <button style={vistaActual === 'productos' ? navButtonSelected : navButton} onClick={() => setVistaActual('productos')}>Productos</button>
-                        <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
                         <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
                         <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
-                        
+
                         {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
                             <>
+                                <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
                                 <button style={vistaActual === 'proveedores' ? navButtonSelected : navButton} onClick={() => setVistaActual('proveedores')}>Proveedores</button>
                                 <button style={vistaActual === 'empleados' ? navButtonSelected : navButton} onClick={() => setVistaActual('empleados')}>Empleados</button>
                                 <button style={vistaActual === 'reportes' ? navButtonSelected : navButton} onClick={() => setVistaActual('reportes')}>Reportes</button>
