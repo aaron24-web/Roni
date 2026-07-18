@@ -107,24 +107,31 @@ export default function GestionProductos({ perfil }) {
     const handleGuardarProducto = async (e) => {
         e.preventDefault();
         try {
-            const params = {
+            // Campos comunes del producto. La promoción es opcional (puede ir null).
+            const base = {
                 descripcion_param: productoActual.descripcion,
                 codigo_barras_param: productoActual.codigo_barras || null,
                 precio_costo_param: parseFloat(productoActual.precio_costo) || 0,
                 precio_venta_param: parseFloat(productoActual.precio_venta) || 0,
                 departamento_id_param: parseInt(productoActual.departamento_id),
                 tipo_producto_param: productoActual.tipo_producto,
-                cantidad_actual_param: parseFloat(productoActual.cantidad_actual) || 0,
                 stock_minimo_param: parseFloat(productoActual.stock_minimo) || 0,
-                promocion_id_param: productoActual.promocion_id || null
+                promocion_id_param: productoActual.promocion_id ? parseInt(productoActual.promocion_id) : null
             };
 
             if (modoEdicion) {
-                const { error } = await supabase.rpc('actualizar_producto', { producto_id_param: productoActual.producto_id, ...params });
+                // Al editar no se toca la cantidad actual (el stock se ajusta con entradas/movimientos).
+                const { error } = await supabase.rpc('actualizar_producto_con_promo', {
+                    producto_id_param: productoActual.producto_id,
+                    ...base
+                });
                 if (error) throw error;
                 alert('¡Producto actualizado exitosamente!');
             } else {
-                const { error } = await supabase.rpc('crear_producto', params);
+                const { error } = await supabase.rpc('crear_producto_con_promo', {
+                    ...base,
+                    cantidad_actual_param: parseFloat(productoActual.cantidad_actual) || 0
+                });
                 if (error) throw error;
                 alert('¡Producto creado exitosamente!');
             }
