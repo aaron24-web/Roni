@@ -1279,8 +1279,8 @@ export type Database = {
             }
             Returns: number
           }
-      verificar_supervisor: {
-        Args: { contrasena_param: string; usuario_param: string }
+      verificar_supervisor_auth: {
+        Args: { p_email: string; p_password: string }
         Returns: number
       }
     }

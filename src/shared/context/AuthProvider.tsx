@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 import { AuthContext } from './auth-context'
 import { esAdministrador } from '../lib/roles'
 import type { Perfil } from '../types/domain'

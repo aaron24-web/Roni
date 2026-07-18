@@ -12,7 +12,7 @@ import {
     useEliminarDepartamento,
     type Departamento,
 } from './useDepartamentos'
-import '../../components/PantallaVenta.css'
+import '../../shared/styles/pos.css'
 
 interface FormularioDepartamento {
     id: number | null

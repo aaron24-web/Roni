@@ -1,39 +1,28 @@
-// src/components/DetalleVentaModal.jsx
+// Ticket de una venta ya realizada.
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import './PantallaVenta.css';
+import { useDetalleVenta, type VentaDeCorte } from './useReportes'
 
-export default function DetalleVentaModal({ venta, onClose }) {
-    const [detalles, setDetalles] = useState([]);
-    const [loading, setLoading] = useState(true);
+interface Props {
+    venta: VentaDeCorte
+    onClose: () => void
+}
 
-    useEffect(() => {
-        const fetchDetallesVenta = async () => {
-            setLoading(true);
-            const { data, error } = await supabase.rpc('obtener_detalle_venta', {
-                venta_id_param: venta.venta_id
-            });
-            if (error) {
-                console.error("Error al cargar el detalle de la venta:", error);
-            } else {
-                setDetalles(data);
-            }
-            setLoading(false);
-        };
-
-        fetchDetallesVenta();
-    }, [venta.venta_id]);
+export default function DetalleVentaModal({ venta, onClose }: Props) {
+    const { data: detalles = [], isPending, error } = useDetalleVenta(venta.venta_id)
 
     return (
         <div className="modal-overlay">
             <div className="modal-content" style={{ maxWidth: '600px' }}>
                 <h2>Detalle de Venta #{venta.venta_id}</h2>
                 <p><strong>Cliente:</strong> {venta.nombre_cliente}</p>
-                <p><strong>Total:</strong> ${parseFloat(venta.total).toFixed(2)}</p>
+                <p><strong>Total:</strong> ${Number(venta.total).toFixed(2)}</p>
                 <hr />
                 <h4>Productos Vendidos</h4>
-                {loading ? <p>Cargando...</p> : (
+
+                {isPending && <p>Cargando...</p>}
+                {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+
+                {!isPending && !error && (
                     <div className="table-container" style={{ maxHeight: '40vh' }}>
                         <table className="sales-table">
                             <thead>
@@ -45,22 +34,23 @@ export default function DetalleVentaModal({ venta, onClose }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {detalles.map((item, index) => (
-                                    <tr key={index}>
+                                {detalles.map((item, indice) => (
+                                    <tr key={indice}>
                                         <td>{item.descripcion}</td>
                                         <td>{item.cantidad}</td>
-                                        <td>${parseFloat(item.precio_unitario).toFixed(2)}</td>
-                                        <td>${parseFloat(item.importe_total).toFixed(2)}</td>
+                                        <td>${Number(item.precio_unitario).toFixed(2)}</td>
+                                        <td>${Number(item.importe_total).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 )}
+
                 <div className="footer">
                     <button type="button" className="pos-button" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
         </div>
-    );
+    )
 }

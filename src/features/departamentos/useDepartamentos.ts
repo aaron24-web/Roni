@@ -5,8 +5,8 @@
 // de refrescar la lista automáticamente tras cada mutación.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../supabaseClient'
-import type { Tabla, Insertar } from '../../types/domain'
+import { supabase } from '../../shared/lib/supabase'
+import type { Tabla, Insertar } from '../../shared/types/domain'
 
 export type Departamento = Tabla<'departamentos'>
 

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './types/database'
+import type { Database } from '../types/database'
 
 // Las credenciales se leen desde variables de entorno (.env.local).
 // Nunca las escribas directamente en el código ni las subas al repositorio.

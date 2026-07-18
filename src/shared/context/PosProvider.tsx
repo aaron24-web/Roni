@@ -5,7 +5,7 @@
 // sobreviven a recargas, cierres accidentales o cortes de luz.
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 import { PosContext } from './pos-context'
 import { getTerminalId } from '../lib/terminal'
 import { useAuth } from './auth-context'
