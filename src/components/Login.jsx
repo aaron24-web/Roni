@@ -1,9 +1,8 @@
 // src/components/Login.jsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-// Estilos (sin cambios)
 const styles = {
     container: { height: '100vh', width: '100vw', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f2f5' },
     loginBox: { padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', width: '100%', maxWidth: '400px', textAlign: 'center' },
@@ -12,11 +11,11 @@ const styles = {
     error: { color: 'red', marginTop: '10px' }
 };
 
-
-// Le pasamos la función 'onLogin' desde App.jsx
-export default function Login({ onLogin }) {
+// El inicio de sesión ahora usa Supabase Auth (email + contraseña con JWT).
+// Al autenticarse, App.jsx detecta la sesión y carga el perfil del empleado.
+export default function Login() {
     const [loading, setLoading] = useState(false);
-    const [usuario, setUsuario] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState(null);
 
@@ -25,43 +24,34 @@ export default function Login({ onLogin }) {
         setError(null);
         setLoading(true);
 
-        try {
-            // Llamamos a nuestra nueva función de base de datos
-            const { data, error } = await supabase.rpc('iniciar_sesion_directo', {
-                usuario_param: usuario,
-                contrasena_param: password
-            });
+        const { error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+        });
 
-            if (error) throw error;
-            
-            // Si la función devuelve datos (un empleado), el login es exitoso
-            if (data && data.length > 0) {
-                // Le pasamos el perfil del empleado a App.jsx
-                onLogin(data[0]);
-            } else {
-                // Si no devuelve datos, las credenciales son incorrectas
-                throw new Error("Usuario o contraseña incorrectos.");
-            }
-
-        } catch (error) {
-            setError(error.message);
-        } finally {
+        if (error) {
+            setError(
+                error.message === 'Invalid login credentials'
+                    ? 'Correo o contraseña incorrectos.'
+                    : error.message
+            );
             setLoading(false);
         }
+        // Si el login es exitoso, el listener de sesión en App.jsx toma el control.
     };
 
     return (
         <div style={styles.container}>
             <div style={styles.loginBox}>
-                <h2>Iniciar Sesión - Papelería Roni</h2>
-                <p style={{color: 'orange'}}>ADVERTENCIA: Modo de login temporal.</p>
+                <h2>Iniciar Sesión · Papelería Roni</h2>
                 <form onSubmit={handleLogin}>
                     <input
                         style={styles.input}
-                        type="text"
-                        placeholder="Usuario"
-                        value={usuario}
-                        onChange={(e) => setUsuario(e.target.value)}
+                        type="email"
+                        placeholder="Correo electrónico"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="username"
                         required
                     />
                     <input
@@ -70,6 +60,7 @@ export default function Login({ onLogin }) {
                         placeholder="Contraseña"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
                         required
                     />
                     <button style={styles.button} type="submit" disabled={loading}>

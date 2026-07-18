@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Variables de entorno (contienen credenciales)
+.env
+.env.*
+!.env.example
+
+# Dumps/respaldos de base de datos (contienen datos y credenciales).
+# Las migraciones en Backups/migrations/ SÍ se versionan.
+Backups/*.sql
+Backups/*.bak
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

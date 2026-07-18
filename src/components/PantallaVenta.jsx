@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import CantidadModal from './CantidadModal';
 import SupervisorApprovalModal from './SupervisorApprovalModal';
+import { sanitizeSearchTerm } from '../lib/searchTerm';
 import './PantallaVenta.css';
 
 export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVentaCompleta, corteActivo }) {
@@ -44,10 +45,15 @@ export default function PantallaVenta({ perfil, carrito, onCarritoChange, onVent
             return;
         }
         const timer = setTimeout(async () => {
+            const term = sanitizeSearchTerm(terminoBusqueda);
+            if (!term) {
+                setResultados([]);
+                return;
+            }
             const { data } = await supabase
                 .from('productos')
                 .select(`*, departamentos ( nombre ), promociones ( * )`)
-                .or(`descripcion.ilike.%${terminoBusqueda}%,codigo_barras.eq.${terminoBusqueda}`)
+                .or(`descripcion.ilike.%${term}%,codigo_barras.eq.${term}`)
                 .limit(10);
             setResultados(data || []);
         }, 300);

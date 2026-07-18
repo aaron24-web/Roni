@@ -37,13 +37,48 @@ const navButtonSelected = {
 };
 
 function App() {
+    const [session, setSession] = useState(null);
     const [perfil, setPerfil] = useState(null);
+    const [cargandoSesion, setCargandoSesion] = useState(true);
+    const [errorPerfil, setErrorPerfil] = useState(null);
     const [vistaActual, setVistaActual] = useState('ventas');
     const [corteActivo, setCorteActivo] = useState(null);
     const [cargandoCorte, setCargandoCorte] = useState(true);
     const [tickets, setTickets] = useState([{ id: 1, carrito: [] }]);
     const [ticketActivoId, setTicketActivoId] = useState(1);
     const [nextTicketId, setNextTicketId] = useState(2);
+
+    // Sesión de Supabase Auth: se restaura al recargar y escucha cambios.
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data }) => {
+            setSession(data.session);
+            setCargandoSesion(false);
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+            setSession(newSession);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
+    // Cuando hay sesión, cargamos el perfil del empleado (con su rol).
+    useEffect(() => {
+        const cargarPerfil = async () => {
+            if (!session) {
+                setPerfil(null);
+                return;
+            }
+            const { data, error } = await supabase.rpc('get_mi_perfil');
+            if (error || !data || data.length === 0) {
+                setErrorPerfil('Tu cuenta no tiene un empleado activo asociado. Contacta al administrador.');
+                await supabase.auth.signOut();
+                setPerfil(null);
+                return;
+            }
+            setErrorPerfil(null);
+            setPerfil(data[0]);
+        };
+        cargarPerfil();
+    }, [session]);
 
     useEffect(() => {
         const verificarCorteActivoGlobal = async () => {
@@ -60,8 +95,8 @@ function App() {
         verificarCorteActivoGlobal();
     }, [perfil]);
 
-    const handleLoginSuccess = (loggedInProfile) => { setPerfil(loggedInProfile); };
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         setPerfil(null);
         setTickets([{ id: 1, carrito: [] }]);
         setTicketActivoId(1);
@@ -115,10 +150,19 @@ function App() {
         }
     };
 
+    if (cargandoSesion) {
+        return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Cargando...</div>;
+    }
+
     return (
         <div className="App">
             {!perfil ? (
-                <Login onLogin={handleLoginSuccess} />
+                <>
+                    <Login />
+                    {errorPerfil && (
+                        <p style={{ textAlign: 'center', color: 'red', marginTop: '15px' }}>{errorPerfil}</p>
+                    )}
+                </>
             ) : (
                 <>
                     <header className="App-header">

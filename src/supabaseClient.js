@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-// La URL de tu API de Supabase (¡la que corregimos!)
-const supabaseUrl = 'https://REDACTED-OLD-PROJECT.supabase.co'
+// Las credenciales se leen desde variables de entorno (.env.local).
+// Nunca las escribas directamente en el código ni las subas al repositorio.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// La clave ANÓNIMA pública de tu API
-const supabaseAnonKey = 'REDACTED-OLD-ANON-KEY'
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Faltan variables de entorno de Supabase. Copia .env.example a .env.local y define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.'
+  )
+}
 
 // Se crea y exporta el cliente de Supabase para usarlo en toda la app
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
