@@ -55,11 +55,24 @@ Aplicación web de punto de venta (POS) para Papelería Roni. Construida con **R
 
 ```
 src/
-  components/   Componentes de la interfaz (pantallas y modales)
-  lib/          Utilidades compartidas
+  components/   Componentes de la interfaz (pantallas, modales y Layout)
+  context/      Estado compartido del POS (corte de caja y tickets)
+  routes/       Guards de ruta (p. ej. solo administradores)
+  lib/          Utilidades compartidas (roles, sanitización)
   supabaseClient.js   Cliente de Supabase (lee credenciales de .env.local)
-Backups/        Respaldos de la base de datos (no versionar los dumps con datos)
+Backups/
+  migrations/   Migraciones SQL versionadas (se aplican con psql)
 ```
+
+## Despliegue
+
+La app usa enrutado del lado del cliente (React Router). El servidor debe
+reescribir todas las rutas a `index.html`, o al recargar en una ruta como
+`/empleados` se obtendrá un 404. Ejemplos:
+
+- **Netlify** — crear `public/_redirects` con: `/*  /index.html  200`
+- **Vercel** — `vercel.json` con un rewrite de `/(.*)` a `/index.html`
+- **Nginx** — `try_files $uri $uri/ /index.html;`
 
 ## Notas de seguridad
 

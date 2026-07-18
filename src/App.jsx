@@ -1,7 +1,12 @@
 // src/App.jsx
 
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+import PosProvider from './context/PosProvider';
+import { usePos } from './context/pos-context';
+import RequireAdmin from './routes/RequireAdmin';
+import Layout from './components/Layout';
 import Login from './components/Login';
 import PantallaVenta from './components/PantallaVenta';
 import GestionEmpleados from './components/GestionEmpleados';
@@ -14,39 +19,31 @@ import GestionProveedores from './components/GestionProveedores';
 import GestionPromociones from './components/GestionPromociones';
 import './App.css';
 
-const navStyles = {
-    padding: '10px 20px',
-    background: '#e9ecef',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px',
-    borderBottom: '1px solid #dee2e6'
-};
-const navButton = {
-    padding: '8px 15px',
-    border: '1px solid transparent',
-    borderRadius: '5px',
-    background: 'none',
-    fontSize: '16px',
-    cursor: 'pointer'
-};
-const navButtonSelected = {
-    ...navButton,
-    background: 'white',
-    borderColor: '#dee2e6'
-};
+// Envoltorios que conectan el estado compartido con los componentes de
+// pantalla, para no cambiar la API que ya tenían.
+function VentasRoute({ perfil }) {
+    const { ticketActivo, actualizarCarritoActivo, cerrarTicket, corteActivo } = usePos();
+    return (
+        <PantallaVenta
+            perfil={perfil}
+            carrito={ticketActivo.carrito}
+            onCarritoChange={actualizarCarritoActivo}
+            onVentaCompleta={() => cerrarTicket(ticketActivo.id)}
+            corteActivo={corteActivo}
+        />
+    );
+}
+
+function CajaRoute({ perfil }) {
+    const { corteActivo, setCorteActivo } = usePos();
+    return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
+}
 
 function App() {
     const [session, setSession] = useState(null);
     const [perfil, setPerfil] = useState(null);
     const [cargandoSesion, setCargandoSesion] = useState(true);
     const [errorPerfil, setErrorPerfil] = useState(null);
-    const [vistaActual, setVistaActual] = useState('ventas');
-    const [corteActivo, setCorteActivo] = useState(null);
-    const [cargandoCorte, setCargandoCorte] = useState(true);
-    const [tickets, setTickets] = useState([{ id: 1, carrito: [] }]);
-    const [ticketActivoId, setTicketActivoId] = useState(1);
-    const [nextTicketId, setNextTicketId] = useState(2);
 
     // Sesión de Supabase Auth: se restaura al recargar y escucha cambios.
     useEffect(() => {
@@ -80,134 +77,54 @@ function App() {
         cargarPerfil();
     }, [session]);
 
-    useEffect(() => {
-        const verificarCorteActivoGlobal = async () => {
-            if (!perfil) {
-                setCorteActivo(null);
-                setCargandoCorte(false);
-                return;
-            }
-            setCargandoCorte(true);
-            const { data } = await supabase.from('cortescaja').select('*').is('fecha_hora_cierre', null).single();
-            setCorteActivo(data);
-            setCargandoCorte(false);
-        };
-        verificarCorteActivoGlobal();
-    }, [perfil]);
-
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setPerfil(null);
-        setTickets([{ id: 1, carrito: [] }]);
-        setTicketActivoId(1);
-        setNextTicketId(2);
-        setVistaActual('ventas');
-        setCorteActivo(null);
-    };
-
-    const crearNuevoTicket = () => {
-        const nuevoTicket = { id: nextTicketId, carrito: [] };
-        setTickets([...tickets, nuevoTicket]);
-        setTicketActivoId(nextTicketId);
-        setNextTicketId(nextTicketId + 1);
-    };
-    const cerrarTicket = (idACerrar) => {
-        if (tickets.length <= 1) return;
-        const nuevosTickets = tickets.filter(t => t.id !== idACerrar);
-        setTickets(nuevosTickets);
-        if (ticketActivoId === idACerrar) {
-            setTicketActivoId(nuevosTickets[0].id);
-        }
-    };
-    const actualizarCarritoActivo = (nuevoCarrito) => {
-        setTickets(tickets.map(t => t.id === ticketActivoId ? { ...t, carrito: nuevoCarrito } : t));
-    };
-    
-    const ticketActivo = tickets.find(t => t.id === ticketActivoId) || tickets[0];
-
-    const renderizarVista = () => {
-        switch (vistaActual) {
-            case 'ventas':
-                return <PantallaVenta perfil={perfil} carrito={ticketActivo.carrito} onCarritoChange={actualizarCarritoActivo} onVentaCompleta={() => cerrarTicket(ticketActivo.id)} corteActivo={corteActivo} />;
-            case 'productos':
-                return <GestionProductos perfil={perfil} />;
-            case 'departamentos':
-                return <GestionDepartamentos perfil={perfil} />;
-            case 'clientes':
-                return <GestionClientes perfil={perfil} />;
-            case 'empleados':
-                return <GestionEmpleados perfil={perfil} />;
-            case 'proveedores':
-                return <GestionProveedores perfil={perfil} />;
-            case 'caja':
-                return <CorteCaja perfil={perfil} corteActivo={corteActivo} onCajaStateChange={setCorteActivo} />;
-            case 'reportes':
-                return <Reportes perfil={perfil} />;
-            case 'promociones':
-                return <GestionPromociones perfil={perfil} />;
-            default:
-                return <div>Vista no encontrada</div>;
-        }
     };
 
     if (cargandoSesion) {
         return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Cargando...</div>;
     }
 
+    if (!perfil) {
+        return (
+            <div className="App">
+                <Login />
+                {errorPerfil && (
+                    <p style={{ textAlign: 'center', color: 'red', marginTop: '15px' }}>{errorPerfil}</p>
+                )}
+            </div>
+        );
+    }
+
+    // Ruta protegida solo para administradores.
+    const soloAdmin = (elemento) => (
+        <RequireAdmin perfil={perfil}>{elemento}</RequireAdmin>
+    );
+
     return (
-        <div className="App">
-            {!perfil ? (
-                <>
-                    <Login />
-                    {errorPerfil && (
-                        <p style={{ textAlign: 'center', color: 'red', marginTop: '15px' }}>{errorPerfil}</p>
-                    )}
-                </>
-            ) : (
-                <>
-                    <header className="App-header">
-                        <h1>Papelería Roni</h1>
-                        <div>
-                            {perfil.nombre_completo} ({perfil.nombre_rol})
-                            <button onClick={handleLogout} style={{marginLeft: '15px'}}>Cerrar Sesión</button>
-                        </div>
-                    </header>
-                    
-                    <nav style={navStyles}>
-                        <button style={vistaActual === 'ventas' ? navButtonSelected : navButton} onClick={() => setVistaActual('ventas')}>Ventas</button>
-                        <button style={vistaActual === 'productos' ? navButtonSelected : navButton} onClick={() => setVistaActual('productos')}>Productos</button>
-                        <button style={vistaActual === 'clientes' ? navButtonSelected : navButton} onClick={() => setVistaActual('clientes')}>Clientes</button>
-                        <button style={vistaActual === 'caja' ? navButtonSelected : navButton} onClick={() => setVistaActual('caja')}>Caja</button>
+        <BrowserRouter>
+            <PosProvider perfil={perfil}>
+                <Routes>
+                    <Route element={<Layout perfil={perfil} onLogout={handleLogout} />}>
+                        <Route index element={<Navigate to="/ventas" replace />} />
+                        <Route path="/ventas" element={<VentasRoute perfil={perfil} />} />
+                        <Route path="/productos" element={<GestionProductos perfil={perfil} />} />
+                        <Route path="/clientes" element={<GestionClientes perfil={perfil} />} />
+                        <Route path="/caja" element={<CajaRoute perfil={perfil} />} />
 
-                        {perfil?.nombre_rol?.toLowerCase() === 'administrador' && (
-                            <>
-                                <button style={vistaActual === 'departamentos' ? navButtonSelected : navButton} onClick={() => setVistaActual('departamentos')}>Departamentos</button>
-                                <button style={vistaActual === 'proveedores' ? navButtonSelected : navButton} onClick={() => setVistaActual('proveedores')}>Proveedores</button>
-                                <button style={vistaActual === 'empleados' ? navButtonSelected : navButton} onClick={() => setVistaActual('empleados')}>Empleados</button>
-                                <button style={vistaActual === 'reportes' ? navButtonSelected : navButton} onClick={() => setVistaActual('reportes')}>Reportes</button>
-                                <button style={vistaActual === 'promociones' ? navButtonSelected : navButton} onClick={() => setVistaActual('promociones')}>Promociones</button>
-                            </>
-                        )}
-                    </nav>
-                    
-                    {vistaActual === 'ventas' && corteActivo && (
-                        <div className="tickets-nav">
-                            {tickets.map((ticket, index) => (
-                                <button key={ticket.id} className={`ticket-tab ${ticket.id === ticketActivoId ? 'active' : ''}`} onClick={() => setTicketActivoId(ticket.id)}>
-                                    Ticket {index + 1}
-                                    {tickets.length > 1 && <span onClick={(e) => { e.stopPropagation(); cerrarTicket(ticket.id); }} style={{marginLeft: '8px', color: 'red', fontWeight:'bold'}}>x</span>}
-                                </button>
-                            ))}
-                            <button className="new-ticket-btn" onClick={crearNuevoTicket}>+</button>
-                        </div>
-                    )}
+                        {/* Rutas exclusivas de administrador (ver matriz de roles) */}
+                        <Route path="/departamentos" element={soloAdmin(<GestionDepartamentos perfil={perfil} />)} />
+                        <Route path="/proveedores" element={soloAdmin(<GestionProveedores perfil={perfil} />)} />
+                        <Route path="/empleados" element={soloAdmin(<GestionEmpleados perfil={perfil} />)} />
+                        <Route path="/reportes" element={soloAdmin(<Reportes perfil={perfil} />)} />
+                        <Route path="/promociones" element={soloAdmin(<GestionPromociones perfil={perfil} />)} />
 
-                    <main>
-                        {cargandoCorte ? <div>Cargando...</div> : renderizarVista()}
-                    </main>
-                </>
-            )}
-        </div>
+                        <Route path="*" element={<Navigate to="/ventas" replace />} />
+                    </Route>
+                </Routes>
+            </PosProvider>
+        </BrowserRouter>
     );
 }
 
