@@ -212,6 +212,7 @@ export type Database = {
           descripcion: string | null
           fecha_creacion: string | null
           nombre: string
+          promocion_id: number | null
         }
         Insert: {
           activo?: boolean | null
@@ -219,6 +220,7 @@ export type Database = {
           descripcion?: string | null
           fecha_creacion?: string | null
           nombre: string
+          promocion_id?: number | null
         }
         Update: {
           activo?: boolean | null
@@ -226,6 +228,7 @@ export type Database = {
           descripcion?: string | null
           fecha_creacion?: string | null
           nombre?: string
+          promocion_id?: number | null
         }
         Relationships: []
       }
@@ -239,6 +242,7 @@ export type Database = {
           impuesto_aplicado: number
           precio_unitario_registrado: number
           producto_id: number
+          promocion_id: number | null
           venta_id: number
         }
         Insert: {
@@ -250,6 +254,7 @@ export type Database = {
           impuesto_aplicado: number
           precio_unitario_registrado: number
           producto_id: number
+          promocion_id?: number | null
           venta_id: number
         }
         Update: {
@@ -261,6 +266,7 @@ export type Database = {
           impuesto_aplicado?: number
           precio_unitario_registrado?: number
           producto_id?: number
+          promocion_id?: number | null
           venta_id?: number
         }
         Relationships: [
@@ -697,30 +703,36 @@ export type Database = {
       promociones: {
         Row: {
           activo: boolean
+          cantidad_pago: number | null
           descripcion: string | null
           fecha_fin: string | null
           fecha_inicio: string
           nombre: string
+          precio_promocional: number | null
           promocion_id: number
           tipo_promocion: string
           valor: number | null
         }
         Insert: {
           activo?: boolean
+          cantidad_pago?: number | null
           descripcion?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string
           nombre: string
+          precio_promocional?: number | null
           promocion_id?: number
           tipo_promocion: string
           valor?: number | null
         }
         Update: {
           activo?: boolean
+          cantidad_pago?: number | null
           descripcion?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string
           nombre?: string
+          precio_promocional?: number | null
           promocion_id?: number
           tipo_promocion?: string
           valor?: number | null
@@ -988,6 +1000,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      asignar_promocion_productos: {
+        Args: { p_promocion_id: number; p_producto_ids: number[] }
+        Returns: undefined
+      }
       abrir_caja: {
         Args: {
           empleado_id_param: number
@@ -1259,26 +1275,17 @@ export type Database = {
         }
         Returns: string
       }
-      registrar_venta_completa:
-        | {
-            Args: {
-              carrito_param: Database["public"]["CompositeTypes"]["detalle_venta_item"][]
-              cliente_id_param: number
-              empleado_id_param: number
-              metodo_pago_id_param: number
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              carrito_param: Database["public"]["CompositeTypes"]["detalle_venta_item"][]
-              cliente_id_param: number
-              corte_id_param: number
-              empleado_id_param: number
-              metodo_pago_id_param: number
-            }
-            Returns: number
-          }
+      registrar_venta_completa: {
+        Args: {
+          carrito_param: Json
+          cliente_id_param: number
+          corte_id_param: number
+          empleado_id_param: number
+          metodo_pago_id_param: number
+          ticket_id_param?: number | null
+        }
+        Returns: number
+      }
       verificar_supervisor_auth: {
         Args: { p_email: string; p_password: string }
         Returns: number

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Tabla } from '../../shared/types/domain'
 
 export type Promocion = Tabla<'promociones'>
@@ -9,7 +10,9 @@ export type Promocion = Tabla<'promociones'>
 /** Tipos de promoción que soporta el sistema (restricción en la base de datos) */
 export const TIPOS_DE_PROMOCION = [
     { value: 'PORCENTAJE', label: 'Porcentaje de Descuento' },
-    { value: 'CANTIDAD_X_CANTIDAD', label: 'Cantidad por Cantidad (ej: 2x1, 3x2)' },
+    { value: 'CANTIDAD_X_CANTIDAD', label: 'Lleva N, paga M (ej: 2x1, 3x1, 3x2)' },
+    { value: 'PRECIO_ESPECIAL', label: 'Precio especial ($ fijo por unidad)' },
+    { value: 'MAYOREO', label: 'Mayoreo (N+ piezas a precio especial)' },
 ] as const
 
 export type TipoPromocion = (typeof TIPOS_DE_PROMOCION)[number]['value']
@@ -17,7 +20,12 @@ export type TipoPromocion = (typeof TIPOS_DE_PROMOCION)[number]['value']
 export interface DatosPromocion {
     nombre: string
     tipo_promocion: string
-    valor: number
+    /** PORCENTAJE: %. N×M: la N ("lleva"). MAYOREO: cantidad mínima. PRECIO_ESPECIAL: null. */
+    valor: number | null
+    /** Solo N×M: la M ("paga"). En los demás tipos va como null. */
+    cantidad_pago: number | null
+    /** PRECIO_ESPECIAL y MAYOREO: precio por unidad. En los demás, null. */
+    precio_promocional: number | null
     descripcion: string | null
     fecha_inicio: string
     fecha_fin: string | null
@@ -31,7 +39,7 @@ async function listarPromociones(): Promise<Promocion[]> {
         .from('promociones')
         .select('*')
         .order('nombre')
-    if (error) throw new Error(error.message)
+    if (error) throw traducirError(error)
     return data ?? []
 }
 
@@ -47,7 +55,7 @@ export function useCrearPromocion() {
     return useMutation({
         mutationFn: async (datos: DatosPromocion) => {
             const { error } = await supabase.from('promociones').insert(datos)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PROMOCIONES }),
     })
@@ -61,8 +69,30 @@ export function useActualizarPromocion() {
                 .from('promociones')
                 .update(datos)
                 .eq('promocion_id', id)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PROMOCIONES }),
+    })
+}
+
+/**
+ * Define QUÉ productos llevan una promoción (semántica de conjunto: los no
+ * seleccionados que la tenían, la pierden). Solo Administrador (servidor).
+ */
+export function useAsignarPromocionProductos() {
+    const cliente = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ promocionId, productoIds }: { promocionId: number; productoIds: number[] }) => {
+            const { error } = await supabase.rpc('asignar_promocion_productos', {
+                p_promocion_id: promocionId,
+                p_producto_ids: productoIds,
+            })
+            if (error) throw traducirError(error)
+        },
+        onSuccess: () => {
+            cliente.invalidateQueries({ queryKey: CLAVE_PROMOCIONES })
+            // La lista de productos también cambió (su promocion_id).
+            cliente.invalidateQueries({ queryKey: ['productos'] })
+        },
     })
 }

@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Tabla, Insertar } from '../../shared/types/domain'
 
 export type Departamento = Tabla<'departamentos'>
@@ -18,7 +19,7 @@ async function listarDepartamentos(): Promise<Departamento[]> {
         .from('departamentos')
         .select('*')
         .order('nombre')
-    if (error) throw new Error(error.message)
+    if (error) throw traducirError(error)
     return data ?? []
 }
 
@@ -32,6 +33,8 @@ export function useDepartamentos() {
 export interface DatosDepartamento {
     nombre: string
     descripcion: string | null
+    /** Promoción aplicada a todos los productos del departamento (la del producto gana). */
+    promocion_id: number | null
 }
 
 export function useCrearDepartamento() {
@@ -40,7 +43,7 @@ export function useCrearDepartamento() {
         mutationFn: async (datos: DatosDepartamento) => {
             const nuevo: Insertar<'departamentos'> = datos
             const { error } = await supabase.from('departamentos').insert(nuevo)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_DEPARTAMENTOS }),
     })
@@ -54,7 +57,7 @@ export function useActualizarDepartamento() {
                 .from('departamentos')
                 .update(datos)
                 .eq('departamento_id', id)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_DEPARTAMENTOS }),
     })
@@ -68,11 +71,11 @@ export function useEliminarDepartamento() {
                 .from('departamentos')
                 .delete()
                 .eq('departamento_id', id)
+            // Caso típico: hay productos asignados a este departamento (FK).
             if (error) {
-                // Caso típico: hay productos asignados a este departamento.
-                throw new Error(
-                    `${error.message}. Asegúrate de que ningún producto esté usando este departamento.`
-                )
+                throw traducirError(error, {
+                    enUso: 'hay productos que usan este departamento. Reasígnalos a otro departamento e inténtalo de nuevo',
+                })
             }
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_DEPARTAMENTOS }),
