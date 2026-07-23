@@ -1,6 +1,7 @@
 // Ticket de una venta ya realizada.
 
 import { useDetalleVenta, type VentaDeCorte } from './useReportes'
+import Modal from '../../shared/components/Modal'
 
 interface Props {
     venta: VentaDeCorte
@@ -11,16 +12,15 @@ export default function DetalleVentaModal({ venta, onClose }: Props) {
     const { data: detalles = [], isPending, error } = useDetalleVenta(venta.venta_id)
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '600px' }}>
-                <h2>Detalle de Venta #{venta.venta_id}</h2>
+        <Modal titulo={`Detalle de Venta #${venta.venta_id}`} onClose={onClose} maxWidth={600}>
+            <div>
                 <p><strong>Cliente:</strong> {venta.nombre_cliente}</p>
                 <p><strong>Total:</strong> ${Number(venta.total).toFixed(2)}</p>
                 <hr />
                 <h4>Productos Vendidos</h4>
 
                 {isPending && <p>Cargando...</p>}
-                {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+                {error && <p className="texto-error">Error al cargar: {error.message}</p>}
 
                 {!isPending && !error && (
                     <div className="table-container" style={{ maxHeight: '40vh' }}>
@@ -48,9 +48,9 @@ export default function DetalleVentaModal({ venta, onClose }: Props) {
                 )}
 
                 <div className="footer">
-                    <button type="button" className="pos-button" onClick={onClose}>Cerrar</button>
+                    <button type="button" className="btn btn--secondary" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }

@@ -16,6 +16,8 @@ import { useDepartamentos } from '../departamentos/useDepartamentos'
 import { usePromociones } from '../promociones/usePromociones'
 import AddStockModal from './AddStockModal'
 import { useAuth } from '../../shared/context/auth-context'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
 import '../../shared/styles/pos.css'
 
 interface Formulario {
@@ -44,6 +46,21 @@ const FORMULARIO_VACIO: Formulario = {
     promocionId: '',
 }
 
+/**
+ * Los servicios (fotocopias, impresiones...) no tienen existencias: no se les
+ * pide stock al venderlos (ver migración 015) ni se les muestra en el catálogo.
+ */
+const controlaStock = (tipoProducto: string | null | undefined) =>
+    (tipoProducto ?? 'UNITARIO') !== 'SERVICIO'
+
+/** Un producto tiene stock bajo si su existencia está en o bajo el mínimo. */
+const esStockBajo = (producto: ProductoConDetalle) => {
+    if (!controlaStock(producto.tipo_producto)) return false
+    const cantidad = producto.inventario[0]?.cantidad_actual ?? 0
+    const minimo = producto.inventario[0]?.stock_minimo ?? 0
+    return cantidad <= minimo
+}
+
 export default function ProductosPage() {
     const { perfil, esAdmin } = useAuth()
     const { data: productos = [], isPending, error } = useProductos()
@@ -52,11 +69,18 @@ export default function ProductosPage() {
     const crear = useCrearProducto()
     const actualizar = useActualizarProducto()
     const entradaStock = useRegistrarEntradaStock()
+    const toast = useToast()
 
     const [modalAbierto, setModalAbierto] = useState(false)
     const [formulario, setFormulario] = useState<Formulario>(FORMULARIO_VACIO)
     const [productoParaStock, setProductoParaStock] = useState<ProductoConDetalle | null>(null)
+
+    // Filtros (todo el filtrado es local: el catálogo completo ya está en caché).
     const [terminoBusqueda, setTerminoBusqueda] = useState('')
+    const [departamentoFiltro, setDepartamentoFiltro] = useState('')
+    const [tipoFiltro, setTipoFiltro] = useState('')
+    const [soloStockBajo, setSoloStockBajo] = useState(false)
+    const [soloConPromo, setSoloConPromo] = useState(false)
 
     const editando = formulario.productoId !== null
     const guardando = crear.isPending || actualizar.isPending
@@ -66,15 +90,34 @@ export default function ProductosPage() {
         [promociones],
     )
 
-    // El filtrado es local: la lista completa ya está en caché.
     const productosFiltrados = useMemo(() => {
-        if (!terminoBusqueda) return []
-        const termino = terminoBusqueda.toLowerCase()
-        return productos.filter(producto =>
-            producto.descripcion.toLowerCase().includes(termino) ||
-            (producto.codigo_barras ?? '').includes(termino)
-        )
-    }, [terminoBusqueda, productos])
+        const termino = terminoBusqueda.trim().toLowerCase()
+        return productos.filter(producto => {
+            if (termino) {
+                const coincide =
+                    producto.descripcion.toLowerCase().includes(termino) ||
+                    (producto.codigo_barras ?? '').toLowerCase().includes(termino)
+                if (!coincide) return false
+            }
+            if (departamentoFiltro && String(producto.departamento_id) !== departamentoFiltro) return false
+            if (tipoFiltro && (producto.tipo_producto ?? '') !== tipoFiltro) return false
+            if (soloStockBajo && !esStockBajo(producto)) return false
+            if (soloConPromo && !producto.promocion_id) return false
+            return true
+        })
+    }, [productos, terminoBusqueda, departamentoFiltro, tipoFiltro, soloStockBajo, soloConPromo])
+
+    const hayFiltros = Boolean(
+        terminoBusqueda || departamentoFiltro || tipoFiltro || soloStockBajo || soloConPromo,
+    )
+
+    const limpiarFiltros = () => {
+        setTerminoBusqueda('')
+        setDepartamentoFiltro('')
+        setTipoFiltro('')
+        setSoloStockBajo(false)
+        setSoloConPromo(false)
+    }
 
     const abrirNuevo = () => {
         setFormulario({
@@ -120,17 +163,17 @@ export default function ProductosPage() {
         try {
             if (editando && formulario.productoId !== null) {
                 await actualizar.mutateAsync({ id: formulario.productoId, datos })
-                alert('¡Producto actualizado exitosamente!')
+                toast.success('¡Producto actualizado exitosamente!')
             } else {
                 await crear.mutateAsync({
                     datos,
                     cantidadInicial: parseFloat(formulario.cantidadActual) || 0,
                 })
-                alert('¡Producto creado exitosamente!')
+                toast.success('¡Producto creado exitosamente!')
             }
             setModalAbierto(false)
         } catch (err) {
-            alert(`Error: ${(err as Error).message}`)
+            toast.error(`Error: ${(err as Error).message}`)
         }
     }
 
@@ -139,82 +182,88 @@ export default function ProductosPage() {
         try {
             await entradaStock.mutateAsync({ productoId, cantidad, empleadoId: perfil.empleado_id })
             setProductoParaStock(null)
-            alert('Stock añadido exitosamente.')
+            toast.success('Stock añadido exitosamente.')
         } catch (err) {
-            alert(`Error al añadir stock: ${(err as Error).message}`)
+            toast.error(`Error al añadir stock: ${(err as Error).message}`)
         }
     }
 
     return (
         <div className="pos-container">
             {modalAbierto && (
-                <div className="modal-overlay">
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>{editando ? 'Editar Producto' : 'Añadir Nuevo Producto'}</h2>
-                        <form onSubmit={handleGuardar} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <label>Descripción:</label>
-                            <input type="text" name="descripcion" value={formulario.descripcion} onChange={handleChange} required className="pos-input" />
+                <Modal
+                    titulo={editando ? 'Editar producto' : 'Nuevo producto'}
+                    onClose={() => setModalAbierto(false)}
+                    confirmarDescarte
+                >
+                    <form onSubmit={handleGuardar} className="form-vertical">
+                        <label>Descripción:</label>
+                        <input type="text" name="descripcion" value={formulario.descripcion} onChange={handleChange} required className="pos-input" />
 
-                            <label>Se vende por:</label>
-                            <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '10px' }}>
-                                {TIPOS_DE_PRODUCTO.map(tipo => (
-                                    <label key={tipo.value}>
-                                        <input
-                                            type="radio"
-                                            name="tipoProducto"
-                                            value={tipo.value}
-                                            checked={formulario.tipoProducto === tipo.value}
-                                            onChange={handleChange}
-                                        /> {tipo.label}
-                                    </label>
-                                ))}
-                            </div>
+                        <label>Se vende por:</label>
+                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {TIPOS_DE_PRODUCTO.map(tipo => (
+                                <label key={tipo.value}>
+                                    <input
+                                        type="radio"
+                                        name="tipoProducto"
+                                        value={tipo.value}
+                                        checked={formulario.tipoProducto === tipo.value}
+                                        onChange={handleChange}
+                                    /> {tipo.label}
+                                </label>
+                            ))}
+                        </div>
 
-                            <label>Código de Barras:</label>
-                            <input type="text" name="codigoBarras" value={formulario.codigoBarras} onChange={handleChange} className="pos-input" />
-                            <label>Precio Costo:</label>
-                            <input type="number" step="0.01" name="precioCosto" value={formulario.precioCosto} onChange={handleChange} required className="pos-input" />
-                            <label>Precio Venta:</label>
-                            <input type="number" step="0.01" name="precioVenta" value={formulario.precioVenta} onChange={handleChange} required className="pos-input" />
+                        <label>Código de Barras:</label>
+                        <input type="text" name="codigoBarras" value={formulario.codigoBarras} onChange={handleChange} className="pos-input" />
+                        <label>Precio Costo:</label>
+                        <input type="number" step="0.01" name="precioCosto" value={formulario.precioCosto} onChange={handleChange} required className="pos-input" />
+                        <label>Precio Venta:</label>
+                        <input type="number" step="0.01" name="precioVenta" value={formulario.precioVenta} onChange={handleChange} required className="pos-input" />
 
-                            {!editando && (
-                                <>
-                                    <label>Cantidad Inicial:</label>
-                                    <input type="number" step="any" name="cantidadActual" value={formulario.cantidadActual} onChange={handleChange} required className="pos-input" />
-                                </>
-                            )}
+                        {/* Un servicio no lleva inventario: no tiene sentido pedirle existencias. */}
+                        {controlaStock(formulario.tipoProducto) && (
+                            <>
+                                {!editando && (
+                                    <>
+                                        <label>Cantidad Inicial:</label>
+                                        <input type="number" step="any" name="cantidadActual" value={formulario.cantidadActual} onChange={handleChange} required className="pos-input" />
+                                    </>
+                                )}
 
-                            <label>Stock Mínimo:</label>
-                            <input type="number" step="any" name="stockMinimo" value={formulario.stockMinimo} onChange={handleChange} required className="pos-input" />
+                                <label>Stock Mínimo:</label>
+                                <input type="number" step="any" name="stockMinimo" value={formulario.stockMinimo} onChange={handleChange} required className="pos-input" />
+                            </>
+                        )}
 
-                            <label>Departamento:</label>
-                            <select name="departamentoId" value={formulario.departamentoId} onChange={handleChange} required className="pos-input">
-                                {departamentos.map(departamento => (
-                                    <option key={departamento.departamento_id} value={departamento.departamento_id}>
-                                        {departamento.nombre}
-                                    </option>
-                                ))}
-                            </select>
+                        <label>Departamento:</label>
+                        <select name="departamentoId" value={formulario.departamentoId} onChange={handleChange} required className="pos-input">
+                            {departamentos.map(departamento => (
+                                <option key={departamento.departamento_id} value={departamento.departamento_id}>
+                                    {departamento.nombre}
+                                </option>
+                            ))}
+                        </select>
 
-                            <label>Asignar Promoción (Opcional):</label>
-                            <select name="promocionId" value={formulario.promocionId} onChange={handleChange} className="pos-input">
-                                <option value="">-- Sin Promoción --</option>
-                                {promocionesActivas.map(promocion => (
-                                    <option key={promocion.promocion_id} value={promocion.promocion_id}>
-                                        {promocion.nombre}
-                                    </option>
-                                ))}
-                            </select>
+                        <label>Asignar Promoción (Opcional):</label>
+                        <select name="promocionId" value={formulario.promocionId} onChange={handleChange} className="pos-input">
+                            <option value="">-- Sin Promoción --</option>
+                            {promocionesActivas.map(promocion => (
+                                <option key={promocion.promocion_id} value={promocion.promocion_id}>
+                                    {promocion.nombre}
+                                </option>
+                            ))}
+                        </select>
 
-                            <div className="footer" style={{ marginTop: '20px' }}>
-                                <button type="button" className="pos-button" style={{ backgroundColor: '#6c757d' }} onClick={() => setModalAbierto(false)} disabled={guardando}>Cancelar</button>
-                                <button type="submit" className="checkout-btn" disabled={guardando}>
-                                    {guardando ? 'Guardando...' : (editando ? 'Guardar Cambios' : 'Guardar Producto')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                        <div className="footer">
+                            <BotonCancelarModal disabled={guardando} />
+                            <button type="submit" className="btn btn--primary" disabled={guardando}>
+                                {guardando ? 'Guardando...' : (editando ? 'Guardar cambios' : 'Guardar producto')}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             )}
 
             {productoParaStock && (
@@ -226,56 +275,121 @@ export default function ProductosPage() {
                 />
             )}
 
-            <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Gestión de Productos</h2>
+            {/* Fila 1: búsqueda + alta */}
+            <div className="toolbar">
                 <input
                     type="text"
-                    placeholder="Buscar producto por nombre o código..."
-                    className="pos-input"
-                    style={{ width: '40%' }}
+                    placeholder="Buscar por nombre o código de barras..."
+                    className="pos-input toolbar__grow"
                     value={terminoBusqueda}
                     onChange={(e) => setTerminoBusqueda(e.target.value)}
                 />
-                {esAdmin && <button className="pos-button" onClick={abrirNuevo}>Añadir Nuevo Producto</button>}
+                {esAdmin && <button className="btn btn--primary" onClick={abrirNuevo}>+ Nuevo producto</button>}
+            </div>
+
+            {/* Fila 2: filtros */}
+            <div className="toolbar">
+                <select
+                    className="pos-input filtro"
+                    value={departamentoFiltro}
+                    onChange={(e) => setDepartamentoFiltro(e.target.value)}
+                    aria-label="Filtrar por departamento"
+                >
+                    <option value="">Todos los departamentos</option>
+                    {departamentos.map(departamento => (
+                        <option key={departamento.departamento_id} value={departamento.departamento_id}>
+                            {departamento.nombre}
+                        </option>
+                    ))}
+                </select>
+
+                <select
+                    className="pos-input filtro"
+                    value={tipoFiltro}
+                    onChange={(e) => setTipoFiltro(e.target.value)}
+                    aria-label="Filtrar por tipo de producto"
+                >
+                    <option value="">Todos los tipos</option>
+                    {TIPOS_DE_PRODUCTO.map(tipo => (
+                        <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+                    ))}
+                </select>
+
+                <button
+                    type="button"
+                    className={`toggle-chip${soloStockBajo ? ' is-on' : ''}`}
+                    onClick={() => setSoloStockBajo(v => !v)}
+                    aria-pressed={soloStockBajo}
+                >Stock bajo</button>
+
+                <button
+                    type="button"
+                    className={`toggle-chip${soloConPromo ? ' is-on' : ''}`}
+                    onClick={() => setSoloConPromo(v => !v)}
+                    aria-pressed={soloConPromo}
+                >Con promoción</button>
+
+                {hayFiltros && (
+                    <button type="button" className="toggle-chip" onClick={limpiarFiltros}>Limpiar</button>
+                )}
+
+                <span className="toolbar__count">
+                    {productosFiltrados.length} de {productos.length} productos
+                </span>
             </div>
 
             {isPending && <p>Cargando productos...</p>}
-            {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+            {error && <p className="texto-error">Error al cargar: {error.message}</p>}
 
             {!isPending && !error && (
-                terminoBusqueda ? (
-                    <div className="table-container">
-                        <table className="sales-table">
-                            <thead>
-                                <tr><th>Código de Barras</th><th>Descripción</th><th>Stock Actual</th><th>Precio Venta</th><th>Acciones</th></tr>
-                            </thead>
-                            <tbody>
-                                {productosFiltrados.length === 0 ? (
-                                    <tr><td colSpan={5} style={{ textAlign: 'center' }}>Sin resultados para “{terminoBusqueda}”.</td></tr>
-                                ) : productosFiltrados.map(producto => (
+                <div className="table-container">
+                    <table className="sales-table">
+                        <thead>
+                            <tr><th>Código de Barras</th><th>Descripción</th><th>Departamento</th><th>Stock</th><th>Precio Venta</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody>
+                            {productosFiltrados.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} style={{ textAlign: 'center' }}>
+                                        {productos.length === 0
+                                            ? 'No hay productos registrados.'
+                                            : 'Ningún producto coincide con los filtros.'}
+                                    </td>
+                                </tr>
+                            ) : productosFiltrados.map(producto => {
+                                const bajo = esStockBajo(producto)
+                                const llevaInventario = controlaStock(producto.tipo_producto)
+                                return (
                                     <tr key={producto.producto_id}>
                                         <td>{producto.codigo_barras || 'N/A'}</td>
                                         <td>{producto.descripcion}</td>
-                                        <td>{producto.inventario[0]?.cantidad_actual ?? 0} {producto.unidad_medida}</td>
+                                        <td>{producto.departamentos?.nombre ?? '—'}</td>
+                                        <td>
+                                            {llevaInventario ? (
+                                                <>
+                                                    <span className={`stock-pill${bajo ? ' is-low' : ''}`}>
+                                                        {producto.inventario[0]?.cantidad_actual ?? 0} {producto.unidad_medida}
+                                                    </span>
+                                                    {bajo && <span className="tag-bajo">Bajo</span>}
+                                                </>
+                                            ) : '—'}
+                                        </td>
                                         <td>${Number(producto.precio_venta).toFixed(2)}</td>
-                                        <td style={{ display: 'flex', gap: '5px' }}>
-                                            {esAdmin && <button onClick={() => abrirEdicion(producto)}>Editar</button>}
-                                            {/* Entrada de stock: disponible para cajeros y administradores */}
-                                            <button
-                                                onClick={() => setProductoParaStock(producto)}
-                                                style={{ backgroundColor: '#17a2b8', color: 'white' }}
-                                            >Añadir Stock</button>
+                                        <td>
+                                            <div className="acciones">
+                                                {esAdmin && <button className="btn btn--secondary" onClick={() => abrirEdicion(producto)}>Editar</button>}
+                                                {/* Entrada de stock: disponible para cajeros y administradores */}
+                                                {llevaInventario && (
+                                                    <button className="btn btn--primary" onClick={() => setProductoParaStock(producto)}>Añadir stock</button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="initial-message">
-                        <h3>Utiliza la barra de búsqueda para encontrar un producto.</h3>
-                    </div>
-                )
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     )

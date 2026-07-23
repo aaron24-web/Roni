@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Tabla } from '../../shared/types/domain'
 
 export type Proveedor = Tabla<'proveedores'>
@@ -14,22 +15,13 @@ export type DatosProveedor = Omit<Proveedor, 'proveedor_id' | 'activo' | 'fecha_
 
 const CLAVE_PROVEEDORES = ['proveedores'] as const
 
-// La base valida el formato con la restricción chk_rfc_formato; traducimos
-// ese error técnico a un mensaje entendible.
-function traducirError(mensaje: string): string {
-    if (mensaje.includes('chk_rfc_formato')) {
-        return 'El formato del RFC introducido no es válido.'
-    }
-    return mensaje
-}
-
 async function listarProveedores(): Promise<Proveedor[]> {
     const { data, error } = await supabase
         .from('proveedores')
         .select('*')
         .eq('activo', true)
         .order('nombre_empresa')
-    if (error) throw new Error(error.message)
+    if (error) throw traducirError(error)
     return data ?? []
 }
 
@@ -45,7 +37,7 @@ export function useCrearProveedor() {
     return useMutation({
         mutationFn: async (datos: DatosProveedor) => {
             const { error } = await supabase.from('proveedores').insert(datos)
-            if (error) throw new Error(traducirError(error.message))
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PROVEEDORES }),
     })
@@ -59,7 +51,7 @@ export function useActualizarProveedor() {
                 .from('proveedores')
                 .update(datos)
                 .eq('proveedor_id', id)
-            if (error) throw new Error(traducirError(error.message))
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PROVEEDORES }),
     })
@@ -74,7 +66,7 @@ export function useDesactivarProveedor() {
                 .from('proveedores')
                 .update({ activo: false })
                 .eq('proveedor_id', id)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PROVEEDORES }),
     })

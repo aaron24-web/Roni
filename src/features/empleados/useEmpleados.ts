@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Tabla } from '../../shared/types/domain'
 
 /** Empleado con el nombre de su rol resuelto */
@@ -28,7 +29,7 @@ export function useEmpleados() {
                 .select('*, roles(nombre_rol)')
                 .eq('activo', true)
                 .order('nombre_completo')
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return (data ?? []) as EmpleadoConRol[]
         },
     })
@@ -39,7 +40,7 @@ export function useRoles() {
         queryKey: CLAVE_ROLES,
         queryFn: async (): Promise<Rol[]> => {
             const { data, error } = await supabase.from('roles').select('*')
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data ?? []
         },
         // Los roles prácticamente no cambian.
@@ -55,13 +56,6 @@ export interface NuevoEmpleado {
     fechaContratacion: string
 }
 
-function traducirError(mensaje: string): string {
-    if (mensaje.includes('duplicate') || mensaje.includes('unique')) {
-        return 'Ya existe un empleado con ese correo.'
-    }
-    return mensaje
-}
-
 /** Crea el usuario de Auth y el empleado vinculado, en una sola transacción. */
 export function useCrearEmpleado() {
     const cliente = useQueryClient()
@@ -74,7 +68,7 @@ export function useCrearEmpleado() {
                 p_rol_id: datos.rolId,
                 p_fecha_contratacion: datos.fechaContratacion,
             })
-            if (error) throw new Error(traducirError(error.message))
+            if (error) throw traducirError(error, { duplicado: 'Ya existe un empleado con ese correo.' })
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_EMPLEADOS }),
     })
@@ -99,7 +93,7 @@ export function useActualizarEmpleado() {
                 rol_id_param: datos.rolId,
                 fecha_contratacion_param: datos.fechaContratacion,
             })
-            if (error) throw new Error(traducirError(error.message))
+            if (error) throw traducirError(error, { duplicado: 'Ya existe un empleado con ese usuario o correo.' })
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_EMPLEADOS }),
     })
@@ -113,7 +107,7 @@ export function useDesactivarEmpleado() {
             const { error } = await supabase.rpc('desactivar_empleado_directo', {
                 empleado_id_param: empleadoId,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_EMPLEADOS }),
     })

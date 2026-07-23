@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { ItemCarrito } from '../../shared/types/domain'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import Modal from '../../shared/components/Modal'
 
 interface Props {
     producto: { descripcion: string; unidad_medida?: string | null }
@@ -11,15 +13,16 @@ interface Props {
 
 export default function CantidadModal({ producto, onConfirm, onCancel }: Props) {
     const [cantidad, setCantidad] = useState('1')
+    const toast = useToast()
 
     const confirmar = useCallback(() => {
         const cantidadNumero = parseFloat(cantidad)
         if (Number.isNaN(cantidadNumero) || cantidadNumero <= 0) {
-            alert('Por favor, ingresa una cantidad válida.')
+            toast.error('Por favor, ingresa una cantidad válida.')
             return
         }
         onConfirm(cantidadNumero)
-    }, [cantidad, onConfirm])
+    }, [cantidad, onConfirm, toast])
 
     // Enter confirma la cantidad.
     useEffect(() => {
@@ -31,9 +34,8 @@ export default function CantidadModal({ producto, onConfirm, onCancel }: Props) 
     }, [confirmar])
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '400px' }}>
-                <h2>Ingresar Cantidad</h2>
+        <Modal titulo="Ingresar cantidad" onClose={onCancel} maxWidth={400}>
+            <div>
                 <p style={{ fontSize: '1.2em', fontWeight: 'bold' }}>{producto.descripcion}</p>
                 <label htmlFor="cantidadInput">Cantidad ({producto.unidad_medida || 'KG'}):</label>
                 <input
@@ -47,11 +49,11 @@ export default function CantidadModal({ producto, onConfirm, onCancel }: Props) 
                     style={{ fontSize: '2em', textAlign: 'center', margin: '15px 0' }}
                 />
                 <div className="footer">
-                    <button className="pos-button" style={{ backgroundColor: '#6c757d' }} onClick={onCancel}>Cancelar</button>
-                    <button className="checkout-btn" onClick={confirmar}>Aceptar</button>
+                    <button className="btn btn--secondary" onClick={onCancel}>Cancelar</button>
+                    <button className="btn btn--primary" onClick={confirmar}>Aceptar</button>
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }
 export type { ItemCarrito }

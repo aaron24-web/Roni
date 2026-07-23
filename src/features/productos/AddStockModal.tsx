@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import type { ProductoConDetalle } from './useProductos'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
 
 interface Props {
     producto: ProductoConDetalle
@@ -12,20 +14,20 @@ interface Props {
 
 export default function AddStockModal({ producto, onConfirm, onCancel, guardando }: Props) {
     const [cantidad, setCantidad] = useState('')
+    const toast = useToast()
 
     const handleConfirmar = () => {
         const cantidadNumero = parseFloat(cantidad)
         if (Number.isNaN(cantidadNumero) || cantidadNumero <= 0) {
-            alert('Por favor, ingresa una cantidad válida.')
+            toast.error('Por favor, ingresa una cantidad válida.')
             return
         }
         onConfirm(producto.producto_id, cantidadNumero)
     }
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '400px' }}>
-                <h2>Añadir Stock</h2>
+        <Modal titulo="Añadir stock" onClose={onCancel} maxWidth={400} confirmarDescarte>
+            <div>
                 <p style={{ fontSize: '1.2em', fontWeight: 'bold' }}>{producto.descripcion}</p>
                 <label htmlFor="cantidadInput">Cantidad a Añadir:</label>
                 <input
@@ -39,14 +41,12 @@ export default function AddStockModal({ producto, onConfirm, onCancel, guardando
                     style={{ fontSize: '2em', textAlign: 'center', margin: '15px 0' }}
                 />
                 <div className="footer">
-                    <button className="pos-button" style={{ backgroundColor: '#6c757d' }} onClick={onCancel} disabled={guardando}>
-                        Cancelar
-                    </button>
-                    <button className="checkout-btn" onClick={handleConfirmar} disabled={guardando}>
-                        {guardando ? 'Guardando...' : 'Confirmar Entrada'}
+                    <BotonCancelarModal disabled={guardando} />
+                    <button className="btn btn--primary" onClick={handleConfirmar} disabled={guardando}>
+                        {guardando ? 'Guardando...' : 'Confirmar entrada'}
                     </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }

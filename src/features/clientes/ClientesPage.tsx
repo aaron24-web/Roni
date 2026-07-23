@@ -15,6 +15,8 @@ import {
 } from './useClientes'
 import EstadoCuentaModal from './EstadoCuentaModal'
 import { useAuth } from '../../shared/context/auth-context'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
 import '../../shared/styles/pos.css'
 
 const FORMULARIO_VACIO: DatosCliente = {
@@ -32,6 +34,7 @@ export default function ClientesPage() {
     const { data: clientes = [], isPending, error } = useClientes()
     const crear = useCrearCliente()
     const actualizar = useActualizarCliente()
+    const toast = useToast()
 
     const [modalAbierto, setModalAbierto] = useState(false)
     const [editandoId, setEditandoId] = useState<number | null>(null)
@@ -67,22 +70,26 @@ export default function ClientesPage() {
         try {
             if (editando && editandoId !== null) {
                 await actualizar.mutateAsync({ id: editandoId, datos: formulario })
+                toast.success('Cliente actualizado.')
             } else {
                 await crear.mutateAsync(formulario)
+                toast.success('Cliente creado.')
             }
             setModalAbierto(false)
         } catch (err) {
-            alert(`Error: ${(err as Error).message}`)
+            toast.error(`Error: ${(err as Error).message}`)
         }
     }
 
     return (
         <div className="pos-container">
             {modalAbierto && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h2>{editando ? 'Editar' : 'Nuevo'} Cliente</h2>
-                        <form onSubmit={handleGuardar} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <Modal
+                    titulo={`${editando ? 'Editar' : 'Nuevo'} Cliente`}
+                    onClose={() => setModalAbierto(false)}
+                    confirmarDescarte
+                >
+                    <form onSubmit={handleGuardar} className="form-vertical">
                             <label>Nombre:</label>
                             <input type="text" name="nombre" value={formulario.nombre} onChange={handleChange} required className="pos-input" />
                             <label>Teléfono:</label>
@@ -114,14 +121,13 @@ export default function ClientesPage() {
                                 className="pos-input"
                             />
                             <div className="footer">
-                                <button type="button" className="pos-button" style={{ backgroundColor: '#6c757d' }} onClick={() => setModalAbierto(false)} disabled={guardando}>Cancelar</button>
-                                <button type="submit" className="checkout-btn" disabled={guardando}>
+                                <BotonCancelarModal disabled={guardando} />
+                                <button type="submit" className="btn btn--primary" disabled={guardando}>
                                     {guardando ? 'Guardando...' : 'Guardar'}
                                 </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </Modal>
             )}
 
             {clienteEstadoCuenta && (
@@ -133,12 +139,12 @@ export default function ClientesPage() {
 
             <div className="search-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Gestión de Clientes</h2>
-                {esAdmin && <button className="pos-button" onClick={abrirNuevo}>Añadir Nuevo Cliente</button>}
+                {esAdmin && <button className="btn btn--primary" onClick={abrirNuevo}>+ Nuevo cliente</button>}
             </div>
 
             <div className="table-container">
                 {isPending && <p>Cargando clientes...</p>}
-                {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+                {error && <p className="texto-error">Error al cargar: {error.message}</p>}
 
                 {!isPending && !error && (
                     <table className="sales-table">
@@ -161,10 +167,12 @@ export default function ClientesPage() {
                                     <td>{cliente.email || 'N/A'}</td>
                                     <td>${Number(cliente.limite_credito ?? 0).toFixed(2)}</td>
                                     <td>
-                                        {esAdmin && <button onClick={() => abrirEdicion(cliente)}>Editar</button>}
-                                        <button onClick={() => setClienteEstadoCuenta(cliente)} style={{ marginLeft: '10px' }}>
-                                            Estado de Cuenta
-                                        </button>
+                                        <div className="acciones">
+                                            {esAdmin && <button className="btn btn--secondary" onClick={() => abrirEdicion(cliente)}>Editar</button>}
+                                            <button className="btn btn--primary" onClick={() => setClienteEstadoCuenta(cliente)}>
+                                                Estado de cuenta
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

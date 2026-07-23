@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Database } from '../../shared/types/database'
 
 type Funciones = Database['public']['Functions']
@@ -21,7 +22,7 @@ export function useHistorialCortes() {
         queryKey: CLAVE_CORTES,
         queryFn: async (): Promise<CorteHistorial[]> => {
             const { data, error } = await supabase.rpc('obtener_historial_cortes')
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data ?? []
         },
     })
@@ -53,7 +54,7 @@ export function useDetalleVenta(ventaId: number) {
             const { data, error } = await supabase.rpc('obtener_detalle_venta', {
                 venta_id_param: ventaId,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data ?? []
         },
     })
@@ -75,7 +76,7 @@ export function useCancelarVenta(corteId: number) {
                     motivo_param: motivo,
                 },
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => {
             // Cambian tanto el detalle del corte como los totales del historial.

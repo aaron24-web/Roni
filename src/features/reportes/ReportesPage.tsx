@@ -6,9 +6,9 @@ import DetalleCorteModal from './DetalleCorteModal'
 import '../../shared/styles/pos.css'
 
 const colorDiferencia = (diferencia: number) => {
-    if (diferencia < 0) return 'red'
-    if (diferencia > 0) return 'blue'
-    return 'green'
+    if (diferencia < 0) return 'var(--color-danger)'
+    if (diferencia > 0) return 'var(--color-primary)'
+    return 'var(--color-success)'
 }
 
 export default function ReportesPage() {
@@ -27,7 +27,7 @@ export default function ReportesPage() {
 
             <div className="table-container">
                 {isPending && <p>Cargando historial de cortes...</p>}
-                {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+                {error && <p className="texto-error">Error al cargar: {error.message}</p>}
 
                 {!isPending && !error && (
                     <table className="sales-table">
@@ -58,7 +58,7 @@ export default function ReportesPage() {
                                             ${diferencia.toFixed(2)}
                                         </td>
                                         <td>
-                                            <button onClick={() => setCorteSeleccionado(corte)}>Ver Detalles</button>
+                                            <button className="btn btn--secondary" onClick={() => setCorteSeleccionado(corte)}>Ver detalles</button>
                                         </td>
                                     </tr>
                                 )

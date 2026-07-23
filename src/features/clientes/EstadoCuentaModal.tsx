@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useEstadoCuenta, useRegistrarAbono, type Cliente } from './useClientes'
 import { useAuth } from '../../shared/context/auth-context'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import Modal from '../../shared/components/Modal'
 
 interface Props {
     cliente: Cliente
@@ -11,6 +13,7 @@ interface Props {
 
 export default function EstadoCuentaModal({ cliente, onClose }: Props) {
     const { perfil } = useAuth()
+    const toast = useToast()
     const { data: movimientos = [], isPending, error } = useEstadoCuenta(cliente.cliente_id)
     const registrarAbono = useRegistrarAbono(cliente.cliente_id)
     const [montoAbono, setMontoAbono] = useState('')
@@ -21,24 +24,23 @@ export default function EstadoCuentaModal({ cliente, onClose }: Props) {
     const handleRegistrarAbono = async () => {
         const monto = parseFloat(montoAbono)
         if (!monto || monto <= 0) {
-            alert('Por favor, ingresa un monto válido para el abono.')
+            toast.error('Por favor, ingresa un monto válido para el abono.')
             return
         }
         if (!perfil) return
         try {
             await registrarAbono.mutateAsync({ monto, empleadoId: perfil.empleado_id })
             setMontoAbono('')
-            alert('¡Abono registrado exitosamente!')
+            toast.success('¡Abono registrado exitosamente!')
         } catch (err) {
-            alert(`Error al registrar el abono: ${(err as Error).message}`)
+            toast.error(`Error al registrar el abono: ${(err as Error).message}`)
         }
     }
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content" style={{ width: '80%', maxWidth: '800px' }}>
-                <h2>Estado de Cuenta de: {cliente.nombre}</h2>
-                <h3>Saldo Actual: <span style={{ color: 'red' }}>${saldoActual.toFixed(2)}</span></h3>
+        <Modal titulo={`Estado de cuenta: ${cliente.nombre}`} onClose={onClose} maxWidth={800}>
+            <div>
+                <h3>Saldo Actual: <span className="texto-error">${saldoActual.toFixed(2)}</span></h3>
                 <hr />
 
                 <h4>Registrar Abono</h4>
@@ -51,17 +53,17 @@ export default function EstadoCuentaModal({ cliente, onClose }: Props) {
                         onChange={(e) => setMontoAbono(e.target.value)}
                     />
                     <button
-                        className="pos-button"
+                        className="btn btn--primary"
                         onClick={handleRegistrarAbono}
                         disabled={registrarAbono.isPending}
                     >
-                        {registrarAbono.isPending ? 'Registrando...' : 'Registrar Abono'}
+                        {registrarAbono.isPending ? 'Registrando...' : 'Registrar abono'}
                     </button>
                 </div>
 
                 <h4>Historial de Movimientos</h4>
                 {isPending && <p>Cargando historial...</p>}
-                {error && <p style={{ color: '#dc3545' }}>Error al cargar: {error.message}</p>}
+                {error && <p className="texto-error">Error al cargar: {error.message}</p>}
 
                 {!isPending && !error && (
                     <div className="table-container" style={{ maxHeight: '40vh' }}>
@@ -93,9 +95,9 @@ export default function EstadoCuentaModal({ cliente, onClose }: Props) {
                 )}
 
                 <div className="footer">
-                    <button type="button" className="pos-button" onClick={onClose}>Cerrar</button>
+                    <button type="button" className="btn btn--secondary" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }

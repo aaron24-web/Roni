@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Tabla } from '../../shared/types/domain'
 
 /** Producto con su departamento e inventario resueltos */
@@ -43,7 +44,7 @@ export function useProductos() {
                 .from('productos')
                 .select('*, departamentos ( nombre ), inventario ( cantidad_actual, stock_minimo )')
                 .order('descripcion', { ascending: true })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return (data ?? []) as ProductoConDetalle[]
         },
     })
@@ -68,7 +69,7 @@ export function useCrearProducto() {
                 stock_minimo_param: datos.stockMinimo,
                 promocion_id_param: datos.promocionId as number,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error, { duplicado: 'Ya existe un producto con ese código de barras.' })
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS }),
     })
@@ -96,7 +97,7 @@ export function useActualizarProducto() {
                 stock_minimo_param: datos.stockMinimo,
                 promocion_id_param: datos.promocionId as number,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error, { duplicado: 'Ya existe un producto con ese código de barras.' })
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS }),
     })
@@ -116,7 +117,7 @@ export function useRegistrarEntradaStock() {
                 cantidad_param: cantidad,
                 empleado_id_param: empleadoId,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
         onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS }),
     })
