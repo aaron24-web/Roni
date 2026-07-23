@@ -42,6 +42,12 @@ export default function PosProvider({ children }: { children: ReactNode }) {
     const corteInicializado = useRef<number | null>(null)
 
     // --- Corte de caja de ESTA terminal -------------------------------
+    //
+    // OJO: dependemos del empleado_id (estable), NO del objeto perfil.
+    // Si dependiéramos del objeto, cada refresco de token al volver a la
+    // pestaña recargaría el corte, y el "Cargando..." del Layout desmontaría
+    // la pantalla cerrando los modales abiertos.
+    const empleadoId = perfil?.empleado_id ?? null
     useEffect(() => {
         let cancelado = false
         const cargarCorte = async () => {
@@ -59,7 +65,7 @@ export default function PosProvider({ children }: { children: ReactNode }) {
         }
         cargarCorte()
         return () => { cancelado = true }
-    }, [perfil, terminalId])
+    }, [empleadoId, terminalId])
 
     // --- Crear un ticket vacío en la base de datos ---------------------
     const insertarTicket = useCallback(async (corteId: number): Promise<Ticket | null> => {

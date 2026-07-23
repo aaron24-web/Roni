@@ -30,11 +30,18 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     // Con sesión activa cargamos el empleado asociado (y su rol).
+    //
+    // OJO: dependemos del ID del usuario (estable), NO del objeto sesión.
+    // Al volver a la pestaña, Auth emite TOKEN_REFRESHED con una sesión nueva
+    // como objeto aunque sea el mismo usuario; si dependiéramos del objeto,
+    // recargaríamos el perfil (y en cascada el corte en PosProvider),
+    // desmontando la pantalla y cerrando los modales abiertos.
+    const userId = session?.user.id ?? null
     useEffect(() => {
         let cancelado = false
 
         const cargarPerfil = async () => {
-            if (!session) {
+            if (!userId) {
                 setPerfil(null)
                 return
             }
@@ -53,7 +60,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
         cargarPerfil()
         return () => { cancelado = true }
-    }, [session])
+    }, [userId])
 
     const cerrarSesion = useCallback(async () => {
         await supabase.auth.signOut()
