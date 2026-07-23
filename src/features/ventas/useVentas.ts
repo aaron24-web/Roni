@@ -2,8 +2,8 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import { sanitizeSearchTerm } from '../../shared/lib/searchTerm'
-import { calcularImporteFinal } from './promociones'
 import type { ItemCarrito, Tabla } from '../../shared/types/domain'
 
 export type MetodoPago = Tabla<'metodospago'>
@@ -15,9 +15,9 @@ export interface ClienteVenta {
     permite_credito: boolean | null
 }
 
-/** Producto tal como lo devuelve la búsqueda, con su promoción */
+/** Producto tal como lo devuelve la búsqueda, con su promoción y la de su departamento */
 export type ProductoBusqueda = Tabla<'productos'> & {
-    departamentos: { nombre: string } | null
+    departamentos: { nombre: string; promociones: Tabla<'promociones'> | null } | null
     promociones: Tabla<'promociones'> | null
 }
 
@@ -29,7 +29,7 @@ export function useMetodosPago() {
                 .from('metodospago')
                 .select('*')
                 .eq('activo', true)
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data ?? []
         },
         // Los métodos de pago cambian rarísima vez.
@@ -46,7 +46,7 @@ export function useClientesParaVenta() {
                 .select('cliente_id, nombre, permite_credito')
                 .eq('activo', true)
                 .order('nombre')
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data ?? []
         },
     })
@@ -64,11 +64,11 @@ export function useBuscarProductos(termino: string) {
         queryFn: async (): Promise<ProductoBusqueda[]> => {
             const { data, error } = await supabase
                 .from('productos')
-                .select('*, departamentos ( nombre ), promociones ( * )')
+                .select('*, departamentos ( nombre, promociones ( * ) ), promociones ( * )')
                 .or(`descripcion.ilike.%${limpio}%,codigo_barras.eq.${limpio}`)
                 .limit(10)
-            if (error) throw new Error(error.message)
-            return (data ?? []) as ProductoBusqueda[]
+            if (error) throw traducirError(error)
+            return (data ?? []) as unknown as ProductoBusqueda[]
         },
     })
 }
@@ -79,19 +79,20 @@ export interface DatosVenta {
     metodoPagoId: number
     corteId: number
     carrito: ItemCarrito[]
+    /** Ticket que se está cobrando: el servidor lo marca COBRADO en la misma transacción. */
+    ticketId: number | null
 }
 
 /** Registra la venta completa y devuelve el id generado. */
 export function useRegistrarVenta() {
     return useMutation({
         mutationFn: async (datos: DatosVenta): Promise<number> => {
+            // Desde la migración 012 el SERVIDOR recalcula precios y
+            // promociones: solo se le dice qué productos y cuántos. Los
+            // importes que muestra la pantalla son un preestimado visual.
             const carritoParaBD = datos.carrito.map(item => ({
                 producto_id: item.producto_id,
                 cantidad: item.cantidad,
-                precio_unitario_registrado: item.precio_unitario_registrado,
-                impuesto_aplicado: 0,
-                importe_total: calcularImporteFinal(item),
-                descripcion_registrada: item.descripcion,
             }))
 
             const { data, error } = await supabase.rpc('registrar_venta_completa', {
@@ -100,8 +101,9 @@ export function useRegistrarVenta() {
                 metodo_pago_id_param: datos.metodoPagoId,
                 corte_id_param: datos.corteId,
                 carrito_param: carritoParaBD,
+                ticket_id_param: datos.ticketId,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data as number
         },
     })
@@ -122,7 +124,7 @@ export function useVerificarSupervisor() {
                 p_email: email,
                 p_password: password,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data
         },
     })

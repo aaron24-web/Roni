@@ -166,21 +166,26 @@ export default function PosProvider({ children }: { children: ReactNode }) {
     }, [corteActivo, insertarTicket])
 
     // Quita un ticket de la lista y garantiza que siempre quede uno abierto.
+    // `persistirEnBD = false` cuando el servidor ya dejó el ticket cerrado
+    // (p. ej. registrar_venta_completa lo marca COBRADO en su transacción).
     const descartarTicket = useCallback(async (
         idTicket: number,
         estado: EstadoTicket,
         ventaId: number | null = null,
+        persistirEnBD = true,
     ) => {
         clearTimeout(temporizadores.current.get(idTicket))
         temporizadores.current.delete(idTicket)
 
-        const { error } = await supabase
-            .from('tickets')
-            .update({ estado, venta_id: ventaId })
-            .eq('ticket_id', idTicket)
-        if (error) {
-            console.error('No se pudo cerrar el ticket:', error)
-            return
+        if (persistirEnBD) {
+            const { error } = await supabase
+                .from('tickets')
+                .update({ estado, venta_id: ventaId })
+                .eq('ticket_id', idTicket)
+            if (error) {
+                console.error('No se pudo cerrar el ticket:', error)
+                return
+            }
         }
 
         const restantes = tickets.filter(t => t.id !== idTicket)
@@ -202,9 +207,10 @@ export default function PosProvider({ children }: { children: ReactNode }) {
         descartarTicket(idTicket, 'CANCELADO')
     }, [tickets, descartarTicket])
 
-    // Tras cobrar: el ticket queda registrado como COBRADO y ligado a su venta.
+    // Tras cobrar: registrar_venta_completa ya marcó el ticket como COBRADO
+    // en la misma transacción (migración 012); aquí solo limpiamos lo local.
     const marcarTicketCobrado = useCallback((idTicket: number, ventaId: number | null) => {
-        descartarTicket(idTicket, 'COBRADO', ventaId)
+        descartarTicket(idTicket, 'COBRADO', ventaId, false)
     }, [descartarTicket])
 
     const actualizarCarritoActivo = useCallback((nuevoCarrito: ItemCarrito[]) => {
