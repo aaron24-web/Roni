@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
-    "types:db": "supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" > src/types/database.ts"
+    "types:db": "supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" > src/shared/types/database.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.52.1",
