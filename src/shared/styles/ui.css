@@ -1,0 +1,391 @@
+/* Sistema de diseño de Papelería Roni.
+ *
+ * Un único lugar para los "design tokens" (colores, espaciado, radios, sombras)
+ * y los estilos de los componentes primitivos (toasts, diálogos, botones).
+ * Las pantallas van migrando de colores hardcodeados/estilos inline a estas
+ * variables y clases de forma gradual. Se importa una sola vez en main.tsx. */
+
+:root {
+    /* === Identidad "Tinta & Papel" ===================================== */
+    /* Azul tinta profundo + acento ámbar (resaltador) sobre papel frío. */
+
+    /* Colores semánticos */
+    --color-primary: #2e3a7b;        /* tinta */
+    --color-primary-hover: #24306a;
+    --color-accent: #f4b740;         /* ámbar / resaltador */
+    --color-accent-hover: #e8a81f;
+    --color-success: #1f9d6b;
+    --color-success-hover: #178055;
+    --color-danger: #e23d4b;
+    --color-danger-hover: #c62f3d;
+    --color-secondary: #64708a;      /* gris azulado */
+    --color-secondary-hover: #515c74;
+
+    /* Superficies y texto */
+    --color-bg: #f4f6fb;             /* papel */
+    --color-surface: #ffffff;
+    --color-surface-2: #fbfcfe;      /* superficie sutil (cabeceras de tabla) */
+    --color-border: #e3e7f0;
+    --color-text: #1b2138;           /* casi tinta */
+    --color-text-muted: #6c7590;
+
+    /* Barra lateral (tinta oscuro) */
+    --sidebar-bg: #232b54;
+    --sidebar-bg-2: #1c2347;
+    --sidebar-text: #c7cce4;
+    --sidebar-text-active: #ffffff;
+    --sidebar-active-bg: rgba(255, 255, 255, 0.09);
+
+    /* Tipografía */
+    --font-ui: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    --font-display: var(--font-ui);
+
+    /* Espaciado */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+
+    /* Radios y sombras */
+    --radius-sm: 6px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow-sm: 0 1px 2px rgba(27, 33, 56, 0.06), 0 1px 3px rgba(27, 33, 56, 0.07);
+    --shadow-md: 0 4px 12px rgba(27, 33, 56, 0.08);
+    --shadow-lg: 0 12px 32px rgba(27, 33, 56, 0.14);
+
+    /* Capas (el toast va por encima de los modales) */
+    --z-modal: 1000;
+    --z-toast: 1100;
+}
+
+/* --- Botones reutilizables ---------------------------------------------- */
+/* Variantes basadas en tokens. Las pantallas pueden adoptarlas en lugar de
+ * repetir `style={{ backgroundColor: '#...' }}`. */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: #fff;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+/* Variante compacta (acciones dentro de filas de tabla). */
+.btn--sm {
+    padding: 4px 10px;
+    font-size: 13px;
+}
+
+/* Pista de atajos de teclado (pie del punto de venta). */
+.hint-atajos {
+    margin-right: auto;
+    align-self: center;
+    color: var(--color-text-muted);
+    font-size: 12.5px;
+}
+
+/* Texto secundario/apagado. */
+.texto-silenciado {
+    color: var(--color-text-muted);
+    font-size: 13.5px;
+}
+
+/* --- Panel de impresora (Caja) ------------------------------------------- */
+.panel-impresora {
+    margin-top: var(--space-5);
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    max-width: 620px;
+}
+
+.panel-impresora h4 {
+    margin: 0 0 var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn--primary {
+    background-color: var(--color-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.btn--danger {
+    background-color: var(--color-danger);
+}
+
+.btn--danger:hover:not(:disabled) {
+    background-color: var(--color-danger-hover);
+}
+
+.btn--secondary {
+    background-color: var(--color-secondary);
+}
+
+.btn--secondary:hover:not(:disabled) {
+    background-color: var(--color-secondary-hover);
+}
+
+/* --- Campos de formulario ------------------------------------------------ */
+.pos-input {
+    width: 100%;
+    padding: 10px var(--space-3);
+    font-size: 14.5px;
+    font-family: inherit;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pos-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(46, 58, 123, 0.14);
+}
+
+.pos-input:disabled {
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+/* --- Utilidades ---------------------------------------------------------- */
+/* Grupo de botones de acción (p. ej. en una celda de tabla). */
+.acciones {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+/* Formulario apilado verticalmente (sustituye el style inline repetido). */
+.form-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Texto en color de error/peligro. */
+.texto-error {
+    color: var(--color-danger);
+}
+
+/* --- Barra de herramientas y filtros ------------------------------------- */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+}
+
+/* El campo que se estira para ocupar el espacio (p. ej. el buscador). */
+.toolbar__grow {
+    flex: 1;
+    min-width: 220px;
+}
+
+.toolbar__count {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+/* Select/entrada de filtro con ancho automático (no al 100%). */
+.pos-input.filtro {
+    width: auto;
+    min-width: 170px;
+}
+
+/* Interruptor tipo "chip" para filtros de sí/no. */
+.toggle-chip {
+    padding: 9px 15px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.toggle-chip:hover {
+    border-color: var(--color-secondary);
+}
+
+.toggle-chip.is-on {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+/* --- Indicadores de stock ------------------------------------------------ */
+.stock-pill {
+    font-weight: 600;
+}
+
+.stock-pill.is-low {
+    color: var(--color-danger);
+}
+
+.tag-bajo {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #8a5a00;
+    background: rgba(244, 183, 64, 0.22);
+    vertical-align: middle;
+}
+
+/* --- Badges de estado (p. ej. vigencia de promociones) ------------------- */
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge--success {
+    color: #0d6a46;
+    background: rgba(31, 157, 107, 0.14);
+}
+
+.badge--info {
+    color: var(--color-primary);
+    background: rgba(46, 58, 123, 0.10);
+}
+
+.badge--danger {
+    color: #a12230;
+    background: rgba(226, 61, 75, 0.12);
+}
+
+.badge--muted {
+    color: var(--color-text-muted);
+    background: rgba(108, 117, 144, 0.14);
+}
+
+/* --- Toasts (reemplazan alert()) ---------------------------------------- */
+.toast-container {
+    position: fixed;
+    top: var(--space-4);
+    right: var(--space-4);
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-width: min(380px, calc(100vw - 2 * var(--space-4)));
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+    border-left: 4px solid var(--color-secondary);
+    color: var(--color-text);
+    animation: toast-entra 0.18s ease;
+}
+
+.toast--success {
+    border-left-color: var(--color-success);
+}
+
+.toast--error {
+    border-left-color: var(--color-danger);
+}
+
+.toast--info {
+    border-left-color: var(--color-primary);
+}
+
+.toast__mensaje {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.toast__cerrar {
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: 0;
+}
+
+@keyframes toast-entra {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* --- Diálogo (reemplaza confirm() y prompt()) --------------------------- */
+.dialog {
+    background-color: var(--color-surface);
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    width: min(440px, calc(100vw - 2 * var(--space-4)));
+    box-shadow: var(--shadow-lg);
+}
+
+.dialog__titulo {
+    margin: 0 0 var(--space-3);
+    font-size: 20px;
+}
+
+.dialog__mensaje {
+    margin: 0 0 var(--space-4);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.dialog__acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+}
