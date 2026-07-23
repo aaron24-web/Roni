@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../../shared/lib/supabase'
+import { traducirError } from '../../shared/lib/errores'
 import type { Database } from '../../shared/types/database'
 import type { Corte } from '../../shared/types/domain'
 
@@ -20,7 +21,7 @@ export function useResumenCorte(corteId: number | undefined) {
             const { data, error } = await supabase.rpc('obtener_resumen_corte', {
                 corte_id_param: corteId as number,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             return data?.[0] ?? null
         },
     })
@@ -38,7 +39,7 @@ export function useAbrirCaja() {
                 saldo_inicial_param: saldoInicial,
                 terminal_id_param: terminalId,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
             // El RPC devuelve solo algunas columnas; recuperamos el corte completo.
             const corteId = data?.[0]?.corte_id
             if (corteId === undefined) return null
@@ -64,7 +65,7 @@ export function useCerrarCaja() {
                 saldo_final_real_param: saldoFinalReal,
                 resumen,
             })
-            if (error) throw new Error(error.message)
+            if (error) throw traducirError(error)
         },
     })
 }

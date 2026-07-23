@@ -7,6 +7,10 @@ import { useState } from 'react'
 import { useResumenCorte, useAbrirCaja, useCerrarCaja } from './useCaja'
 import { usePos } from '../../shared/context/pos-context'
 import { useAuth } from '../../shared/context/auth-context'
+import { useToast } from '../../shared/components/feedback/toast-context'
+import { useConfirm } from '../../shared/components/feedback/dialog-context'
+import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
+import PanelImpresora from './PanelImpresora'
 import { getTerminalId, getTerminalNombre } from '../../shared/lib/terminal'
 import '../../shared/styles/pos.css'
 
@@ -16,6 +20,8 @@ export default function CajaPage() {
     const { data: resumen, isPending: cargandoResumen } = useResumenCorte(corteActivo?.corte_id)
     const abrirCaja = useAbrirCaja()
     const cerrarCaja = useCerrarCaja()
+    const toast = useToast()
+    const confirmar = useConfirm()
 
     const [fondoInicial, setFondoInicial] = useState('')
     const [efectivoEnCaja, setEfectivoEnCaja] = useState('')
@@ -24,7 +30,7 @@ export default function CajaPage() {
     const handleAbrirCaja = async () => {
         const montoInicial = parseFloat(fondoInicial)
         if (Number.isNaN(montoInicial) || montoInicial < 0) {
-            alert('Por favor, ingresa un fondo inicial válido.')
+            toast.error('Por favor, ingresa un fondo inicial válido.')
             return
         }
         if (!perfil) return
@@ -35,33 +41,37 @@ export default function CajaPage() {
                 terminalId: getTerminalId(),
             })
             if (corte) setCorteActivo(corte)
-            alert('Caja abierta exitosamente. ¡Listo para vender!')
+            toast.success('Caja abierta exitosamente. ¡Listo para vender!')
         } catch (err) {
-            alert(`Error al abrir la caja: ${(err as Error).message}`)
+            toast.error(`Error al abrir la caja: ${(err as Error).message}`)
         }
     }
 
     const handleCerrarCaja = async () => {
         const efectivoReal = parseFloat(efectivoEnCaja)
         if (Number.isNaN(efectivoReal) || efectivoReal < 0) {
-            alert('Por favor, ingresa un monto de efectivo válido.')
+            toast.error('Por favor, ingresa un monto de efectivo válido.')
             return
         }
         if (!corteActivo) return
-        if (!window.confirm('¿Estás seguro de que quieres cerrar el turno? Esta acción no se puede deshacer.')) {
-            return
-        }
+        const confirmado = await confirmar({
+            titulo: 'Cerrar turno',
+            mensaje: '¿Estás seguro de que quieres cerrar el turno? Esta acción no se puede deshacer.',
+            textoConfirmar: 'Cerrar turno',
+            peligro: true,
+        })
+        if (!confirmado) return
         try {
             await cerrarCaja.mutateAsync({
                 corteId: corteActivo.corte_id,
                 saldoFinalReal: efectivoReal,
                 resumen: resumen ?? null,
             })
-            alert('¡Turno cerrado exitosamente!')
+            toast.success('¡Turno cerrado exitosamente!')
             setModalCierre(false)
             setCorteActivo(null)
         } catch (err) {
-            alert(`Error al cerrar la caja: ${(err as Error).message}`)
+            toast.error(`Error al cerrar la caja: ${(err as Error).message}`)
         }
     }
 
@@ -70,7 +80,7 @@ export default function CajaPage() {
             <div className="pos-container" style={{ alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 150px)' }}>
                 <div style={{ padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', textAlign: 'center' }}>
                     <h2>Abrir Caja</h2>
-                    <p style={{ color: '#6c757d' }}>Terminal: <strong>{getTerminalNombre()}</strong></p>
+                    <p style={{ color: 'var(--color-text-muted)' }}>Terminal: <strong>{getTerminalNombre()}</strong></p>
                     <p>Esta terminal no tiene una sesión de caja activa. Ingresa el fondo inicial para comenzar a vender.</p>
                     <label htmlFor="fondoInicial" style={{ fontWeight: 'bold' }}>Fondo de Caja Inicial:</label>
                     <input
@@ -82,10 +92,11 @@ export default function CajaPage() {
                         onChange={(e) => setFondoInicial(e.target.value)}
                         placeholder="0.00"
                     />
-                    <button className="checkout-btn" onClick={handleAbrirCaja} disabled={abrirCaja.isPending}>
-                        {abrirCaja.isPending ? 'Iniciando...' : 'Iniciar Turno'}
+                    <button className="btn btn--primary" onClick={handleAbrirCaja} disabled={abrirCaja.isPending}>
+                        {abrirCaja.isPending ? 'Iniciando...' : 'Iniciar turno'}
                     </button>
                 </div>
+                <PanelImpresora />
             </div>
         )
     }
@@ -97,11 +108,10 @@ export default function CajaPage() {
     return (
         <div className="pos-container">
             {modalCierre && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h2>Confirmar Cierre de Caja</h2>
+                <Modal titulo="Confirmar Cierre de Caja" onClose={() => setModalCierre(false)} confirmarDescarte>
+                    <div>
                         <p><strong>Total en Efectivo (según sistema):</strong> ${saldoFinalTeorico.toFixed(2)}</p>
-                        <p style={{ fontSize: '0.9em', color: '#6c757d' }}>
+                        <p style={{ fontSize: '0.9em', color: 'var(--color-text-muted)' }}>
                             Este total se calcula con: (Fondo Inicial + Ventas en Efectivo)
                         </p>
                         <hr />
@@ -124,19 +134,13 @@ export default function CajaPage() {
                             </div>
                         )}
                         <div className="footer" style={{ marginTop: '20px' }}>
-                            <button
-                                type="button"
-                                className="pos-button"
-                                style={{ backgroundColor: '#6c757d' }}
-                                onClick={() => setModalCierre(false)}
-                                disabled={cerrarCaja.isPending}
-                            >Cancelar</button>
-                            <button className="checkout-btn" onClick={handleCerrarCaja} disabled={cerrarCaja.isPending}>
-                                {cerrarCaja.isPending ? 'Cerrando...' : 'Confirmar y Cerrar Turno'}
+                            <BotonCancelarModal disabled={cerrarCaja.isPending} />
+                            <button className="btn btn--primary" onClick={handleCerrarCaja} disabled={cerrarCaja.isPending}>
+                                {cerrarCaja.isPending ? 'Cerrando...' : 'Confirmar y cerrar turno'}
                             </button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
 
             <h2>Corte de Caja Activo</h2>
@@ -159,9 +163,11 @@ export default function CajaPage() {
                 ) : <p>No se encontró resumen.</p>
             )}
             <br />
-            <button className="pos-button" style={{ backgroundColor: '#dc3545' }} onClick={() => setModalCierre(true)}>
-                Realizar Corte Final
+            <button className="btn btn--danger" onClick={() => setModalCierre(true)}>
+                Realizar corte final
             </button>
+
+            <PanelImpresora />
         </div>
     )
 }
