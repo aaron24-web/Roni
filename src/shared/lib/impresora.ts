@@ -134,6 +134,8 @@ export interface RenglonTicket {
     descripcion: string
     importe: number
     descuento?: number
+    /** Contenido de un paquete: se lista bajo el renglón, sin precio. */
+    componentes?: { cantidad: number; descripcion: string }[]
 }
 
 export interface DatosTicket {
@@ -177,6 +179,10 @@ export function formatearTicket(datos: DatosTicket): string[] {
         lineas.push(dosColumnas(`  ${renglon.cantidad} x`, dinero(renglon.importe)))
         if (renglon.descuento && renglon.descuento > 0) {
             lineas.push(dosColumnas('  promo', `-${dinero(renglon.descuento)}`))
+        }
+        // Las piezas de un paquete, para que el cliente vea qué se lleva.
+        for (const componente of renglon.componentes ?? []) {
+            lineas.push(`   - ${componente.cantidad} ${componente.descripcion}`.slice(0, ANCHO_TICKET))
         }
     }
     lineas.push(linea())

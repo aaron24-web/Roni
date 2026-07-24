@@ -156,7 +156,8 @@ curso) son independientes por terminal y **se persisten en la BD** (tabla
   últimas: `011` promos N×M · `012` venta íntegra en servidor · `013` tipos de
   promo avanzados y promo por departamento · `014` asignación de productos a
   promo en bloque (las cuatro aplicadas el 2026-07-21) · `015` los servicios
-  no controlan existencias (aplicada el 2026-07-23). **Todas aplicadas.**
+  no controlan existencias · `016` paquetes (KIT) virtuales (las dos aplicadas
+  el 2026-07-23). **Todas aplicadas.**
 - **Conexión a la base:** `SUPABASE_DB_URL` en `.env.local` (ignorado por git).
   Aplicar una migración:
   `set -a && . ./.env.local && set +a && psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/XXX.sql`
@@ -174,6 +175,11 @@ cierra el ticket en la misma transacción. El cálculo del carrito en el front
 - **Regenerar tipos** tras cambiar el esquema: `npm run types:db` (requiere la
   variable `SUPABASE_DB_URL` y **Docker corriendo** — el CLI de Supabase lo
   usa). Genera `src/shared/types/database.ts`.
+
+**Tipos de producto:** `UNITARIO` (por pieza) · `GRANEL` (decimales, con modal
+de cantidad) · `SERVICIO` (sin existencias) · `KIT` (paquete virtual: descuenta
+sus componentes al venderse). Los cuatro tienen comportamiento real desde la
+migración 016.
 
 **Funciones clave (RPC):** `iniciar` login vía Supabase Auth (no RPC);
 `get_mi_perfil`, `mi_rol`, `exigir_admin`; `crear_empleado_con_auth`;
@@ -223,16 +229,15 @@ Estado esperado: **typecheck, build y lint en verde, sin avisos.** Mantenerlo as
 4. **Despliegue:** el enrutado de cliente exige *rewrite* a `index.html`
    (ejemplos en `README.md`). Tenerlo en cuenta al hacer deploy.
 
-4.b **El tipo de producto `KIT` es decorativo — decisión tomada, falta
-   ejecutarla.** La cadena `'KIT'` aparece solo como etiqueta del desplegable
-   en `features/productos/useProductos.ts`: no hay tabla de componentes ni
-   lógica, así que un paquete se vende como un producto normal y **no descuenta
-   sus componentes**. De los cuatro tipos, solo `GRANEL` tiene comportamiento
-   real. El usuario eligió el modelo de **paquete virtual**: el paquete no se
-   arma físicamente y al cobrarlo se descuentan los componentes. Pendiente:
-   tabla `kit_componentes`, explosión en `registrar_venta_completa`, arreglo de
-   `cancelar_venta_completa` (hoy devolvería el stock al paquete, que no tiene
-   fila en `inventario`, sin dar error) y el editor de contenido en Productos.
+4.b ~~**El tipo de producto `KIT` es decorativo**~~ **HECHO (2026-07-23,
+   migración 016):** los paquetes son **virtuales**. No se arman ni tienen
+   existencias propias; al cobrarlos se descuentan sus componentes
+   (`kit_componentes`), con un movimiento de inventario por pieza y **un solo
+   renglón** en `detalleventa`, el del paquete. Su "stock" es un cálculo:
+   cuántos se pueden armar. `cancelar_venta_completa` devuelve los componentes
+   (antes el `UPDATE` sobre el paquete afectaba a cero filas **sin error** y el
+   stock se perdía) y `registrar_entrada_stock` rechaza paquetes y servicios.
+   El costo del paquete lo calcula el servidor sumando el de sus piezas.
 
 5. **Detalle menor:** un commit anterior (`1f05726`) quedó sin la línea
    `Co-Authored-By`; no se enmendó para no reescribir historia por un metadato.

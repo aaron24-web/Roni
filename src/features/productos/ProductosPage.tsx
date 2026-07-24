@@ -6,15 +6,20 @@
 import { useState, useMemo, type FormEvent, type ChangeEvent } from 'react'
 import {
     useProductos,
+    useComponentesKit,
     useCrearProducto,
     useActualizarProducto,
     useRegistrarEntradaStock,
+    unidadesArmables,
     TIPOS_DE_PRODUCTO,
     type ProductoConDetalle,
+    type ComponenteKit,
+    type ComponenteKitDetalle,
 } from './useProductos'
 import { useDepartamentos } from '../departamentos/useDepartamentos'
 import { usePromociones } from '../promociones/usePromociones'
 import AddStockModal from './AddStockModal'
+import EditorContenidoPaquete from './EditorContenidoPaquete'
 import { useAuth } from '../../shared/context/auth-context'
 import { useToast } from '../../shared/components/feedback/toast-context'
 import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
@@ -31,6 +36,7 @@ interface Formulario {
     cantidadActual: string
     stockMinimo: string
     promocionId: string
+    componentes: ComponenteKit[]
 }
 
 const FORMULARIO_VACIO: Formulario = {
@@ -44,14 +50,18 @@ const FORMULARIO_VACIO: Formulario = {
     cantidadActual: '0',
     stockMinimo: '0',
     promocionId: '',
+    componentes: [],
 }
 
+const esPaquete = (tipoProducto: string | null | undefined) => tipoProducto === 'KIT'
+
 /**
- * Los servicios (fotocopias, impresiones...) no tienen existencias: no se les
- * pide stock al venderlos (ver migración 015) ni se les muestra en el catálogo.
+ * Ni los servicios (fotocopias, impresiones...) ni los paquetes tienen
+ * existencias propias: el servicio no lleva inventario y el paquete descuenta
+ * las de su contenido al venderse (migraciones 015 y 016).
  */
 const controlaStock = (tipoProducto: string | null | undefined) =>
-    (tipoProducto ?? 'UNITARIO') !== 'SERVICIO'
+    (tipoProducto ?? 'UNITARIO') !== 'SERVICIO' && !esPaquete(tipoProducto)
 
 /** Un producto tiene stock bajo si su existencia está en o bajo el mínimo. */
 const esStockBajo = (producto: ProductoConDetalle) => {
@@ -64,6 +74,7 @@ const esStockBajo = (producto: ProductoConDetalle) => {
 export default function ProductosPage() {
     const { perfil, esAdmin } = useAuth()
     const { data: productos = [], isPending, error } = useProductos()
+    const { data: componentesPorKit } = useComponentesKit()
     const { data: departamentos = [] } = useDepartamentos()
     const { data: promociones = [] } = usePromociones()
     const crear = useCrearProducto()
@@ -111,6 +122,13 @@ export default function ProductosPage() {
         terminoBusqueda || departamentoFiltro || tipoFiltro || soloStockBajo || soloConPromo,
     )
 
+    /** Cuántos paquetes salen del stock actual de sus componentes. */
+    const armablesDe = (producto: ProductoConDetalle): number => {
+        const componentes: ComponenteKitDetalle[] = componentesPorKit?.get(producto.producto_id) ?? []
+        const posibles = unidadesArmables(componentes)
+        return Number.isFinite(posibles) ? posibles : 0
+    }
+
     const limpiarFiltros = () => {
         setTerminoBusqueda('')
         setDepartamentoFiltro('')
@@ -139,6 +157,8 @@ export default function ProductosPage() {
             cantidadActual: String(producto.inventario[0]?.cantidad_actual ?? 0),
             stockMinimo: String(producto.inventario[0]?.stock_minimo ?? 0),
             promocionId: producto.promocion_id ? String(producto.promocion_id) : '',
+            componentes: (componentesPorKit?.get(producto.producto_id) ?? [])
+                .map(c => ({ producto_id: c.producto_id, cantidad: c.cantidad })),
         })
         setModalAbierto(true)
     }
@@ -150,15 +170,25 @@ export default function ProductosPage() {
 
     const handleGuardar = async (e: FormEvent) => {
         e.preventDefault()
+
+        const formularioEsPaquete = esPaquete(formulario.tipoProducto)
+        if (formularioEsPaquete && formulario.componentes.length === 0) {
+            toast.error('Un paquete necesita al menos un producto en su contenido.')
+            return
+        }
+
         const datos = {
             descripcion: formulario.descripcion,
             codigoBarras: formulario.codigoBarras || null,
-            precioCosto: parseFloat(formulario.precioCosto) || 0,
+            // El costo de un paquete lo calcula el servidor sumando el de sus
+            // piezas; mandar el del formulario sería mentirle al margen.
+            precioCosto: formularioEsPaquete ? 0 : parseFloat(formulario.precioCosto) || 0,
             precioVenta: parseFloat(formulario.precioVenta) || 0,
             departamentoId: parseInt(formulario.departamentoId, 10),
             tipoProducto: formulario.tipoProducto,
             stockMinimo: parseFloat(formulario.stockMinimo) || 0,
             promocionId: formulario.promocionId ? parseInt(formulario.promocionId, 10) : null,
+            componentes: formularioEsPaquete ? formulario.componentes : undefined,
         }
         try {
             if (editando && formulario.productoId !== null) {
@@ -217,10 +247,26 @@ export default function ProductosPage() {
 
                         <label>Código de Barras:</label>
                         <input type="text" name="codigoBarras" value={formulario.codigoBarras} onChange={handleChange} className="pos-input" />
-                        <label>Precio Costo:</label>
-                        <input type="number" step="0.01" name="precioCosto" value={formulario.precioCosto} onChange={handleChange} required className="pos-input" />
-                        <label>Precio Venta:</label>
+
+                        {/* El costo de un paquete es la suma del de sus piezas: lo calcula el servidor. */}
+                        {!esPaquete(formulario.tipoProducto) && (
+                            <>
+                                <label>Precio Costo:</label>
+                                <input type="number" step="0.01" name="precioCosto" value={formulario.precioCosto} onChange={handleChange} required className="pos-input" />
+                            </>
+                        )}
+
+                        <label>{esPaquete(formulario.tipoProducto) ? 'Precio del paquete:' : 'Precio Venta:'}</label>
                         <input type="number" step="0.01" name="precioVenta" value={formulario.precioVenta} onChange={handleChange} required className="pos-input" />
+
+                        {esPaquete(formulario.tipoProducto) && (
+                            <EditorContenidoPaquete
+                                componentes={formulario.componentes}
+                                candidatos={productos}
+                                precioPaquete={parseFloat(formulario.precioVenta) || 0}
+                                onCambiar={componentes => setFormulario(prev => ({ ...prev, componentes }))}
+                            />
+                        )}
 
                         {/* Un servicio no lleva inventario: no tiene sentido pedirle existencias. */}
                         {controlaStock(formulario.tipoProducto) && (
@@ -372,6 +418,11 @@ export default function ProductosPage() {
                                                     </span>
                                                     {bajo && <span className="tag-bajo">Bajo</span>}
                                                 </>
+                                            ) : esPaquete(producto.tipo_producto) ? (
+                                                // Un paquete no tiene existencias: se muestra cuántos salen del stock actual.
+                                                <span className={`stock-pill${armablesDe(producto) === 0 ? ' is-low' : ''}`}>
+                                                    {armablesDe(producto)} armables
+                                                </span>
                                             ) : '—'}
                                         </td>
                                         <td>${Number(producto.precio_venta).toFixed(2)}</td>

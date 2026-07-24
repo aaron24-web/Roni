@@ -23,6 +23,25 @@ export const TIPOS_DE_PRODUCTO = [
     { value: 'KIT', label: 'Como Paquete (Kit)' },
 ] as const
 
+/**
+ * Un producto dentro de un paquete: qué es y cuántas piezas lleva.
+ * Alias de tipo y no `interface`: así TypeScript le infiere firma de índice y
+ * se puede mandar como parámetro `jsonb` del RPC.
+ */
+export type ComponenteKit = {
+    producto_id: number
+    cantidad: number
+}
+
+/** El contenido de un paquete con precio y existencias ya resueltos (vista). */
+export interface ComponenteKitDetalle extends ComponenteKit {
+    descripcion: string
+    precio_venta: number
+    precio_costo: number
+    tipo_producto: string
+    stock_componente: number
+}
+
 export interface DatosProducto {
     descripcion: string
     codigoBarras: string | null
@@ -32,9 +51,24 @@ export interface DatosProducto {
     tipoProducto: string
     stockMinimo: number
     promocionId: number | null
+    /** Solo para tipo KIT: el contenido del paquete. */
+    componentes?: ComponenteKit[]
+}
+
+/**
+ * Cuántos paquetes se pueden armar con las existencias actuales: el mínimo de
+ * (stock del componente / piezas que lleva). Los servicios no limitan nada.
+ * Un paquete sin contenido no se puede armar (ni vender).
+ */
+export function unidadesArmables(componentes: ComponenteKitDetalle[]): number {
+    const conStock = componentes.filter(c => c.tipo_producto !== 'SERVICIO')
+    if (componentes.length === 0) return 0
+    if (conStock.length === 0) return Infinity
+    return Math.floor(Math.min(...conStock.map(c => c.stock_componente / c.cantidad)))
 }
 
 const CLAVE_PRODUCTOS = ['productos'] as const
+const CLAVE_KITS = ['kit-componentes'] as const
 
 export function useProductos() {
     return useQuery({
@@ -46,6 +80,40 @@ export function useProductos() {
                 .order('descripcion', { ascending: true })
             if (error) throw traducirError(error)
             return (data ?? []) as ProductoConDetalle[]
+        },
+    })
+}
+
+/**
+ * Contenido de TODOS los paquetes, indexado por paquete. Se trae de una vez
+ * (el catálogo de una papelería es pequeño) para que el listado pueda calcular
+ * cuántos se pueden armar sin una consulta por fila.
+ */
+export function useComponentesKit() {
+    return useQuery({
+        queryKey: CLAVE_KITS,
+        queryFn: async (): Promise<Map<number, ComponenteKitDetalle[]>> => {
+            const { data, error } = await supabase
+                .from('vista_kit_componentes')
+                .select('*')
+                .order('descripcion', { ascending: true })
+            if (error) throw traducirError(error)
+
+            const porKit = new Map<number, ComponenteKitDetalle[]>()
+            for (const fila of data ?? []) {
+                const lista = porKit.get(fila.kit_producto_id) ?? []
+                lista.push({
+                    producto_id: fila.componente_producto_id,
+                    cantidad: Number(fila.cantidad),
+                    descripcion: fila.descripcion,
+                    precio_venta: Number(fila.precio_venta),
+                    precio_costo: Number(fila.precio_costo),
+                    tipo_producto: fila.tipo_producto,
+                    stock_componente: Number(fila.stock_componente),
+                })
+                porKit.set(fila.kit_producto_id, lista)
+            }
+            return porKit
         },
     })
 }
@@ -68,10 +136,16 @@ export function useCrearProducto() {
                 cantidad_actual_param: cantidadInicial,
                 stock_minimo_param: datos.stockMinimo,
                 promocion_id_param: datos.promocionId as number,
+                // El contenido del paquete viaja en la MISMA llamada: producto y
+                // componentes se guardan en una transacción, sin paquetes vacíos.
+                componentes_param: datos.componentes ?? null,
             })
             if (error) throw traducirError(error, { duplicado: 'Ya existe un producto con ese código de barras.' })
         },
-        onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS }),
+        onSuccess: () => {
+            cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS })
+            cliente.invalidateQueries({ queryKey: CLAVE_KITS })
+        },
     })
 }
 
@@ -96,10 +170,14 @@ export function useActualizarProducto() {
                 tipo_producto_param: datos.tipoProducto,
                 stock_minimo_param: datos.stockMinimo,
                 promocion_id_param: datos.promocionId as number,
+                componentes_param: datos.componentes ?? null,
             })
             if (error) throw traducirError(error, { duplicado: 'Ya existe un producto con ese código de barras.' })
         },
-        onSuccess: () => cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS }),
+        onSuccess: () => {
+            cliente.invalidateQueries({ queryKey: CLAVE_PRODUCTOS })
+            cliente.invalidateQueries({ queryKey: CLAVE_KITS })
+        },
     })
 }
 

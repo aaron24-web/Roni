@@ -12,6 +12,7 @@ import {
     type ProductoBusqueda,
 } from './useVentas'
 import { calcularImporteFinal, importeSinPromocion, calcularTotal } from './promociones'
+import { useComponentesKit } from '../productos/useProductos'
 import CantidadModal from './CantidadModal'
 import SupervisorApprovalModal from './SupervisorApprovalModal'
 import Modal, { BotonCancelarModal } from '../../shared/components/Modal'
@@ -48,6 +49,8 @@ export default function VentasPage() {
     const registrarVenta = useRegistrarVenta()
     const toast = useToast()
     const confirmar = useConfirm()
+    // Para desglosar en el carrito las piezas que se llevará un paquete.
+    const { data: componentesPorKit } = useComponentesKit()
 
     const [modalBusqueda, setModalBusqueda] = useState(false)
     const [terminoBusqueda, setTerminoBusqueda] = useState('')
@@ -212,6 +215,10 @@ export default function VentasPage() {
                         descripcion: item.descripcion,
                         importe: calcularImporteFinal(item),
                         descuento: importeSinPromocion(item) - calcularImporteFinal(item),
+                        componentes: componentesPorKit?.get(item.producto_id)?.map(componente => ({
+                            cantidad: componente.cantidad * item.cantidad,
+                            descripcion: componente.descripcion,
+                        })),
                     })),
                     total,
                     metodoPago: metodoActual?.nombre ?? '',
@@ -392,6 +399,16 @@ export default function VentasPage() {
                                                 Promo: {item.promociones.nombre}
                                             </div>
                                         )}
+                                        {/* Un paquete descuenta estas piezas del inventario al cobrar. */}
+                                        {componentesPorKit?.get(item.producto_id)?.length ? (
+                                            <ul className="kit-desglose">
+                                                {componentesPorKit.get(item.producto_id)!.map(componente => (
+                                                    <li key={componente.producto_id}>
+                                                        {componente.cantidad * item.cantidad} × {componente.descripcion}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : null}
                                     </td>
                                     <td>${Number(item.precio_unitario_registrado).toFixed(2)}</td>
                                     <td>

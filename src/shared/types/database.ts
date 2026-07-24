@@ -997,7 +997,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vista_kit_componentes: {
+        Row: {
+          kit_producto_id: number
+          componente_producto_id: number
+          cantidad: number
+          descripcion: string
+          precio_venta: number
+          precio_costo: number
+          tipo_producto: string
+          stock_componente: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       asignar_promocion_productos: {
@@ -1068,6 +1080,7 @@ export type Database = {
       actualizar_producto_con_promo: {
         Args: {
           codigo_barras_param: string
+          componentes_param?: Json
           departamento_id_param: number
           descripcion_param: string
           precio_costo_param: number
@@ -1155,6 +1168,7 @@ export type Database = {
         Args: {
           cantidad_actual_param: number
           codigo_barras_param: string
+          componentes_param?: Json
           departamento_id_param: number
           descripcion_param: string
           precio_costo_param: number
